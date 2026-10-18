@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 local EnemyDefinitions = require(ReplicatedStorage:WaitForChild("Shared").EnemyDefinitions)
 
 local Effects = require(script.Parent.Parent.Effects)
+local AtmosphereController = require(script.Parent.AtmosphereController)
 local HUDController = require(script.Parent.HUDController)
 
 local player = Players.LocalPlayer
@@ -123,8 +124,10 @@ local function buildGui()
 	return ui
 end
 
--- Dusk + red grade; returns a function that restores the original lighting.
+-- Dusk + red grade; returns a function that ends it: into the boss-wave mood (stays dark) during a wave,
+-- otherwise back to the original lighting.
 local function darkenWorld(): () -> ()
+	AtmosphereController.BossIntroStarted()
 	local original = {
 		ClockTime = Lighting.ClockTime,
 		Brightness = Lighting.Brightness,
@@ -137,7 +140,10 @@ local function darkenWorld(): () -> ()
 	tween(grade, 1.2, { TintColor = Color3.fromRGB(255, 150, 150), Contrast = 0.3, Saturation = -0.25, Brightness = -0.05 })
 	tween(Lighting, 1.2, { ClockTime = 18.6, Brightness = 0.8, OutdoorAmbient = Color3.fromRGB(90, 35, 40), Ambient = Color3.fromRGB(60, 25, 30) })
 	return function()
-		tween(Lighting, 0.8, original)
+		AtmosphereController.BossIntroFinished(0.8)
+		if not AtmosphereController.IsBossMood() then
+			tween(Lighting, 0.8, original)
+		end
 		tween(grade, 0.8, { TintColor = Color3.new(1, 1, 1), Contrast = 0, Saturation = 0, Brightness = 0 })
 		task.delay(0.9, function()
 			grade:Destroy()

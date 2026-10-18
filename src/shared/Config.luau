@@ -32,7 +32,7 @@ return {
 	Boss = {
 		CutsceneSeconds = 7, -- enemies frozen + players shielded while the intro cutscene plays
 		SpawnPosition = Vector3.new(0, 0, -118), -- rises out of the ground in front of the retirement home
-		-- Boss waves (countdown + wave): the sky turns to a dark red dusk, back to day when the wave ends.
+		-- After the boss cutscene the sky stays a dark red dusk until that wave ends, then day fades back.
 		WaveLighting = {
 			FadeSeconds = 2.5,
 			ClockTime = 18.6,
