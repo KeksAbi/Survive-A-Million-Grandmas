@@ -135,15 +135,6 @@ local function getAimPoint(muzzleHeight: number): (Vector3, number?)
 	return ray.Origin + ray.Direction * math.max(t, 1), nil
 end
 
-local function spreadDirection(direction: Vector3, degrees: number): Vector3
-	if degrees <= 0 then
-		return direction
-	end
-	local angle = math.rad(degrees) * math.sqrt(math.random())
-	local roll = math.random() * math.pi * 2
-	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(0, 0, roll) * CFrame.Angles(angle, 0, 0)).LookVector
-end
-
 local function tryFire()
 	local weapon = WeaponData.Weapons[player:GetAttribute("Weapon") or ""]
 	if not weapon or not getHumanoid() or player:GetAttribute("Reloading") or HUDController.ModalOpen or HUDController.CutsceneActive then
@@ -211,7 +202,7 @@ local function tryFire()
 	shotParams.FilterDescendantsInstances = include
 	local backOffset = Config.Combat.RayBackOffset
 	for pellet = 1, weapon.Pellets do
-		local dir = if weapon.Pellets > 1 then spreadDirection(direction, weapon.SpreadDegrees) else direction
+		local dir = if weapon.Pellets > 1 then WeaponData.PelletDirection(direction, weapon, pellet) else direction
 		local hit = workspace:Raycast(origin - dir * backOffset, dir * (weapon.Range + backOffset), shotParams)
 		local endPosition = if hit then hit.Position else origin + dir * weapon.Range
 		if pellet == 1 and aimedEnemyId and (aimPoint - origin).Magnitude < (endPosition - origin).Magnitude then

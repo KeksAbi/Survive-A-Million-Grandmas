@@ -220,14 +220,34 @@ local function getRayParams(): RaycastParams
 	return rayParams
 end
 
--- Random direction inside a cone of `degrees` around `direction`.
-local function spreadDirection(direction: Vector3, degrees: number): Vector3
-	if degrees <= 0 then
-		return direction
+-- Casts every pellet of one shot along `aim`. Returns damage and hit point per enemy, and where pellet 1
+-- stopped. With `onlyEnemyId` set, only pellets hitting that enemy count.
+local function castPellets(weapon: WeaponData.WeaponDefinition, origin: Vector3, aim: Vector3, onlyEnemyId: number?)
+	local params = getRayParams()
+	local backOffset = Config.Combat.RayBackOffset
+	local damageByEnemy: { [number]: number } = {}
+	local hitPosition: { [number]: Vector3 } = {}
+	local firstEnd: Vector3? = nil
+	for pellet = 1, weapon.Pellets do
+		local dir = WeaponData.PelletDirection(aim, weapon, pellet)
+		-- start behind the muzzle so a grandma pressed against the gun is still hit
+		local rayStart = origin - dir * backOffset
+		local result = workspace:Raycast(rayStart, dir * (weapon.Range + backOffset), params)
+		local endPosition = if result then result.Position else origin + dir * weapon.Range
+		firstEnd = firstEnd or endPosition
+		local enemyId = if result then EnemyService.GetEnemyIdFromInstance(result.Instance) else nil
+		local position = endPosition
+		if not enemyId then
+			-- near miss: forgive small lag offsets (stops at walls/ground the ray already hit)
+			local maxDistance = if result then result.Distance else weapon.Range + backOffset
+			enemyId, position = EnemyService.FindEnemyNearRay(rayStart, dir, maxDistance, Config.Combat.HitTolerance)
+		end
+		if enemyId and (onlyEnemyId == nil or enemyId == onlyEnemyId) then
+			damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage
+			hitPosition[enemyId] = position
+		end
 	end
-	local angle = math.rad(degrees) * math.sqrt(math.random())
-	local roll = math.random() * math.pi * 2
-	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(0, 0, roll) * CFrame.Angles(angle, 0, 0)).LookVector
+	return damageByEnemy, hitPosition, firstEnd
 end
 
 local mapParams = RaycastParams.new()
@@ -300,38 +320,20 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 	state.Ammo[weapon.Id] -= 1
 
 	-- hit detection: one ray per pellet, damage summed per enemy
-	local params = getRayParams()
 	local aim = direction.Unit
-	local damageByEnemy: { [number]: number } = {}
-	local hitPosition: { [number]: Vector3 } = {}
-	local firstEnd: Vector3? = nil
-	for _ = 1, weapon.Pellets do
-		local dir = spreadDirection(aim, weapon.SpreadDegrees)
-		-- start behind the muzzle so a grandma pressed against the gun is still hit
-		local backOffset = Config.Combat.RayBackOffset
-		local rayStart = origin - dir * backOffset
-		local result = workspace:Raycast(rayStart, dir * (weapon.Range + backOffset), params)
-		local endPosition = if result then result.Position else origin + dir * weapon.Range
-		firstEnd = firstEnd or endPosition
-		local enemyId = if result then EnemyService.GetEnemyIdFromInstance(result.Instance) else nil
-		local position = endPosition
-		if not enemyId then
-			-- near miss: forgive small lag offsets (stops at walls/ground the ray already hit)
-			local maxDistance = if result then result.Distance else weapon.Range + backOffset
-			enemyId, position = EnemyService.FindEnemyNearRay(rayStart, dir, maxDistance, Config.Combat.HitTolerance)
-		end
-		if enemyId then
-			damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage
-			hitPosition[enemyId] = position
-		end
-	end
+	local damageByEnemy, hitPosition, firstEnd = castPellets(weapon, origin, aim, nil)
 
-	-- the enemy under the client's crosshair gets at least one pellet if the claim checks out
+	-- the enemy under the client's crosshair was missed on the server (it moved a bit on the server's side):
+	-- if the claim checks out, re-fire the same pellet pattern at where the server has that enemy, so a
+	-- shotgun blast that hit on screen deals its full pellet damage instead of a single pellet
 	if typeof(aimedEnemyId) == "number" and not damageByEnemy[aimedEnemyId] then
 		local valid, position = validateClaim(aimedEnemyId, head.Position, origin, aim, weapon.Range)
-		if valid then
-			damageByEnemy[aimedEnemyId] = weapon.Damage
-			hitPosition[aimedEnemyId] = position
+		local enemy = valid and EnemyService.Get(aimedEnemyId)
+		if enemy and position then
+			local corrected = (enemy.Position + Vector3.new(0, enemy.Def.RootHeight, 0) - origin).Unit
+			local claimed, claimedPosition = castPellets(weapon, origin, corrected, aimedEnemyId)
+			damageByEnemy[aimedEnemyId] = math.max(claimed[aimedEnemyId] or 0, weapon.Damage)
+			hitPosition[aimedEnemyId] = claimedPosition[aimedEnemyId] or position
 		end
 	end
 
