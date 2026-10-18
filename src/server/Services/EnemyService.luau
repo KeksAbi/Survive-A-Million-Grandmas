@@ -157,7 +157,7 @@ local function kill(enemy: Enemy, killer: Player?)
 	enemy.Model:Destroy()
 
 	if killer and killer.Parent == Players then
-		EconomyService.AddCash(killer, enemy.Def.CashReward)
+		EconomyService.AddCash(killer, enemy.Def.CashReward, true)
 	end
 	EnemyService.EnemyKilled:Fire(enemy, killer)
 end

@@ -15,7 +15,7 @@ MVP only: no pets, rebirths, crafting, trading, multiple worlds or deep progress
 ## Code layout (Rojo, `default.project.json`)
 | Folder | Becomes in Studio | Contents |
 |---|---|---|
-| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `WaveDefinitions`, `Remotes`, `Signal` |
+| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `WaveDefinitions`, `SkinDefinitions`, `Remotes`, `Signal` |
 | `src/server` | `ServerScriptService.Server` | `Main.server.luau` (bootstrap), `Services/*`, `World/*` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` | `Main.client.luau`, `Effects`, `Controllers/*` |
 
@@ -28,6 +28,14 @@ Server services (`src/server/Services`):
 - `CombatService`: weapon ownership, equipped weapon, ammo, reload, fire-rate, server raycasts, damage.
 - `ShopService`: `Purchase` remote: weapons (WeaponDefinitions.Cost) and grenades; buys auto-equip.
 - `GrenadeService`: grenade count (`Grenades` attr), `ThrowGrenade` remote, server-side landing + explosion.
+- `DataService`: saved stats (DataStore `Config.Data.StoreName`): Kills, BestWave, Victories, Revives. Delta saves
+  via UpdateAsync (counts added, BestWave = max), retries, autosave, save on leave + BindToClose, receipts stored
+  in the same document (`GrantReceipt`, exactly-once). Attributes LifetimeKills/BestWave/Victories/Revives +
+  `leaderstats` (Kills, Best Wave, Wins). Without DataStore access: session only, warning in Output.
+- `PurchaseService`: gamepasses (`Config.Monetization.Passes`: DoubleCash -> `CashMultiplier` attr on kill cash,
+  VIP -> tag + Gold skin + sparkles, SkinPack -> skins), Revive product (ProcessReceipt -> DataService credit,
+  auto-used when dead in a wave, `UseRevive` remote, `RevivesPerWave`), `SelectSkin` remote. Attrs `Pass<Key>`,
+  `Skin`, `RevivedWave`.
 - `AdminService`: admin panel requests (`Admin` remote: jump to wave, skip wave/countdown, cash, all guns,
   kill all, heal). Admins = `Config.Admin.UserIds`, the place owner, everyone in Studio; player attr `Admin`.
 - `WaveService`: the single match loop: Waiting -> (Intermission -> Wave) x10 -> Victory/Defeat -> results
@@ -43,7 +51,8 @@ fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in 
 `WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `MobileController` (touch
 buttons FIRE/R/G; touch aims through the screen center with aim assist), `EnemyBarController` (health bars over
 damaged grandmas from the `HealthRatio` attribute), `BossCutsceneController` (7 s MEGA GRANDMA intro: rises
-out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `AtmosphereController` (dark red
+out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `StoreController` (STORE button bottom left / top left on
+touch: passes + gun skins; REVIVE button while dead), `AtmosphereController` (dark red
 dusk from the boss cutscene until that wave ends, `Config.Boss.WaveLighting`), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
@@ -109,7 +118,8 @@ Report honestly what was tested and what was not.
   low-health red edges, results pop-in, map details (school bus, crosswalks, flower beds, more lamps).
 - [x] Phase 4: shop (left panel, keys 1-3 buy/equip), grenades (G, $60,
   max 5), Slipper Grandma (ranged slipper arcs), Scooter Grandma, MEGA GRANDMA (stomp + boss bars).
-- [ ] Phase 6 DataStore stats (DataService), leaderboard, gamepasses/products (PurchaseService).
+- [x] Phase 6 (written, NOT yet tested in Studio): DataService stats + leaderstats, PurchaseService passes /
+  Revive product / skins (`SkinDefinitions`), StoreController. Pass/product ids still 0 (Alex creates them).
 - [ ] Phase 7 Testing and optimization.
 
 ## Known limitations (now)

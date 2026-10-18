@@ -28,13 +28,27 @@ Do not edit synced scripts inside Studio: Rojo overwrites them from disk.
 ## Build without Studio
 `rojo build -o build/SurviveMillionGrandmas.rbxl` creates a place file from the code (the map is generated at runtime).
 
-## Gamepass and product IDs (Phase 6)
-Create them in the Creator Dashboard (Monetization > Passes / Developer Products), then put the IDs into the
-monetization config module (added in Phase 6). Buttons stay disabled while an ID is 0.
+## Gamepasses and the Revive product
+The game must be published first (File > Publish to Roblox). Then, on create.roblox.com > your experience:
+1. **Monetization > Passes**: create `2X CASH` (suggested 149 Robux), `VIP` (299) and `SKIN PACK` (99).
+   Put each one on sale and copy its id.
+2. **Monetization > Developer Products**: create `REVIVE` (suggested 29) and copy its id.
+3. Paste the ids into `src/shared/Config.luau` > `Monetization` (`Passes.DoubleCash.Id`, `Passes.VIP.Id`,
+   `Passes.SkinPack.Id`, `Products.Revive.Id`). While an id is 0 its store button shows **SOON** and does nothing.
 
-## DataStores (Phase 6)
-For stats to save while testing in Studio: Game Settings > Security > **Enable Studio Access to API Services**.
-The game must be published first.
+What they do: 2X CASH doubles cash from kills (not wave bonuses). VIP gives a VIP tag over the head, the golden
+gun skin and golden sparkles. SKIN PACK unlocks the Candy, Toxic and Galaxy gun skins. REVIVE gives one revive
+credit; it is used at once if you are dead during a wave (max 1 revive per wave), otherwise it is kept for later.
+The real Robux prices are read from Roblox; the prices in Config are only a fallback for display.
+
+Testing purchases in Studio: Roblox shows a test prompt and no Robux are spent. A test-bought pass works until
+you stop the test (Roblox does not remember it as owned). Revive test purchases go through the same receipt code.
+
+## Saved stats (DataStores)
+Saved per player: lifetime grandma kills, best wave, victories, unused revive credits. They show in the player
+list (Kills, Best Wave, Wins). Matches where admin tools (or `Config.Debug.StartWave` > 1) were used do not count.
+To save while testing in Studio: publish the place, then Game Settings > Security > **Enable Studio Access to
+API Services**. Without it the game still runs, stats just are not saved (the Output window says so).
 
 ## Publish
 File > Publish to Roblox (first time: create a new experience). Then set the experience to Public in the

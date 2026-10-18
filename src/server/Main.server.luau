@@ -10,11 +10,13 @@ local World = script.Parent.World
 
 local MapBuilder = require(World.MapBuilder)
 local EconomyService = require(Services.EconomyService)
+local DataService = require(Services.DataService)
 local PlayerService = require(Services.PlayerService)
 local EnemyService = require(Services.EnemyService)
 local CombatService = require(Services.CombatService)
 local GrenadeService = require(Services.GrenadeService)
 local ShopService = require(Services.ShopService)
+local PurchaseService = require(Services.PurchaseService)
 local WaveService = require(Services.WaveService)
 local AdminService = require(Services.AdminService)
 
@@ -22,10 +24,12 @@ Remotes.Init()
 MapBuilder.Build()
 
 EconomyService.Init()
+DataService.Init()
 EnemyService.Init()
 CombatService.Init()
 GrenadeService.Init()
 ShopService.Init()
+PurchaseService.Init()
 PlayerService.Init() -- after the services that listen to CharacterSpawned
 WaveService.Start() -- the match loop
 AdminService.Init()

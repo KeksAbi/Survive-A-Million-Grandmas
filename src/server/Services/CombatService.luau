@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
+local SkinData = require(Shared.SkinDefinitions)
 
 local EnemyService = require(script.Parent.EnemyService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -136,6 +137,9 @@ local function buildGun(player: Player, state: State)
 	end
 
 	local look = Weapons[state.Equipped].Look
+	local skin = SkinData.Skins[tostring(player:GetAttribute("Skin") or "Default")] or SkinData.Skins.Default
+	local bodyColor = skin.BodyColor or look.BodyColor
+	local accentColor = skin.AccentColor or look.AccentColor
 	local gun = Instance.new("Model")
 	gun.Name = "Gun"
 
@@ -144,7 +148,7 @@ local function buildGun(player: Player, state: State)
 		part.Name = name
 		part.Size = size
 		part.Color = color
-		part.Material = Enum.Material.SmoothPlastic
+		part.Material = skin.Material or Enum.Material.SmoothPlastic
 		part.CanCollide = false
 		part.CanTouch = false
 		part.CanQuery = false
@@ -160,9 +164,9 @@ local function buildGun(player: Player, state: State)
 	end
 
 	local size = look.Size
-	local handle = gunPart("Handle", size, CFrame.new(0, 0, -size.Z / 2 + 0.3), look.BodyColor)
-	gunPart("Accent", Vector3.new(size.X + 0.04, size.Y * 0.35, size.Z * 0.45), CFrame.new(0, -size.Y * 0.1, -size.Z / 2 + 0.3), look.AccentColor)
-	gunPart("Grip", Vector3.new(size.X * 0.9, 0.55, 0.3), CFrame.new(0, -size.Y / 2 - 0.2, 0.1), look.BodyColor)
+	local handle = gunPart("Handle", size, CFrame.new(0, 0, -size.Z / 2 + 0.3), bodyColor)
+	gunPart("Accent", Vector3.new(size.X + 0.04, size.Y * 0.35, size.Z * 0.45), CFrame.new(0, -size.Y * 0.1, -size.Z / 2 + 0.3), accentColor)
+	gunPart("Grip", Vector3.new(size.X * 0.9, 0.55, 0.3), CFrame.new(0, -size.Y / 2 - 0.2, 0.1), bodyColor)
 
 	local muzzle = Instance.new("Attachment")
 	muzzle.Name = "Muzzle"
@@ -408,6 +412,14 @@ end
 function CombatService.OwnsWeapon(player: Player, weaponId: string): boolean
 	local state = states[player]
 	return state ~= nil and state.Owned[weaponId] == true
+end
+
+-- Rebuilds the held gun (after a skin change).
+function CombatService.RefreshGun(player: Player)
+	local state = states[player]
+	if state then
+		buildGun(player, state)
+	end
 end
 
 -- New match: back to the starting weapon only.

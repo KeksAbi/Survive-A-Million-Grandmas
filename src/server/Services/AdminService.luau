@@ -73,9 +73,15 @@ local ACTIONS = {
 	end,
 }
 
+-- actions that make a match easier: a match where one was used is not saved to the stats
+local AFFECTS_STATS = { JumpToWave = true, SkipWave = true, SkipCountdown = false, AddCash = true, GiveWeapons = true, KillAll = true, Heal = true }
+
 local function onAdmin(player: Player, action: any, value: any)
 	if typeof(action) ~= "string" or not ACTIONS[action] or not isAdmin(player) then
 		return
+	end
+	if AFFECTS_STATS[action] then
+		WaveService.MarkAdminUsed()
 	end
 	local now = os.clock()
 	if now - (lastRequest[player] or 0) < ADMIN_COOLDOWN then

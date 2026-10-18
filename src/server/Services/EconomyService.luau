@@ -30,12 +30,13 @@ function EconomyService.GetEarned(player: Player): number
 	return earned[player] or 0
 end
 
--- Adds a reward. A "CashMultiplier" player attribute (set by PurchaseService for the 2x gamepass) scales it.
-function EconomyService.AddCash(player: Player, amount: number)
+-- Adds a reward. Kill rewards (`fromKill`) are scaled by the "CashMultiplier" player attribute
+-- (set by PurchaseService for the 2X CASH gamepass); wave bonuses and admin cash are not.
+function EconomyService.AddCash(player: Player, amount: number, fromKill: boolean?)
 	if cash[player] == nil or amount <= 0 then
 		return
 	end
-	local multiplier = player:GetAttribute("CashMultiplier") or 1
+	local multiplier = if fromKill then player:GetAttribute("CashMultiplier") or 1 else 1
 	local final = math.floor(amount * multiplier + 0.5)
 	cash[player] += final
 	earned[player] += final

@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
+local SkinData = require(Shared.SkinDefinitions)
 
 local Effects = require(script.Parent.Parent.Effects)
 local InputController = require(script.Parent.InputController)
@@ -32,6 +33,12 @@ local aimParams = RaycastParams.new()
 aimParams.FilterType = Enum.RaycastFilterType.Exclude
 local shotParams = RaycastParams.new() -- same filter as the server's bullet rays
 shotParams.FilterType = Enum.RaycastFilterType.Include
+
+-- tracer color of a player's gun skin (nil = default yellow)
+local function tracerColor(shooter: Player?): Color3?
+	local skin = shooter and SkinData.Skins[tostring(shooter:GetAttribute("Skin") or "")]
+	return skin and skin.TracerColor
+end
 
 local function getHumanoid(): Humanoid?
 	local character = player.Character
@@ -208,7 +215,7 @@ local function tryFire()
 		if pellet == 1 and aimedEnemyId and (aimPoint - origin).Magnitude < (endPosition - origin).Magnitude then
 			endPosition = aimPoint -- crosshair was on a grandma: the server counts it, so the tracer stops there
 		end
-		Effects.Trail(origin, endPosition)
+		Effects.Trail(origin, endPosition, tracerColor(player))
 		local enemiesFolder = workspace:FindFirstChild("Enemies")
 		if hit and not (enemiesFolder and hit.Instance:IsDescendantOf(enemiesFolder)) then
 			Effects.HitSpark(endPosition) -- bullet hit the map
@@ -312,9 +319,9 @@ function GunController.Init()
 		end
 	end)
 
-	Remotes.Get("ShotFx").OnClientEvent:Connect(function(_userId: number, _weaponId: string, origin: Vector3, endPosition: Vector3)
+	Remotes.Get("ShotFx").OnClientEvent:Connect(function(userId: number, _weaponId: string, origin: Vector3, endPosition: Vector3)
 		Effects.MuzzleFlash(origin)
-		Effects.Trail(origin, endPosition)
+		Effects.Trail(origin, endPosition, tracerColor(Players:GetPlayerByUserId(userId)))
 	end)
 end
 

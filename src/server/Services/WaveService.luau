@@ -15,6 +15,7 @@ local WaveDefinitions = require(Shared.WaveDefinitions)
 
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local CombatService = require(script.Parent.CombatService)
+local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemyService = require(script.Parent.EnemyService)
 local GrenadeService = require(script.Parent.GrenadeService)
@@ -34,6 +35,7 @@ local wavesSurvived = 0
 local matchKills: { [Player]: number } = {}
 local jumpTarget: number? = nil -- admin panel: the next wave to jump to (cuts the current countdown/wave short)
 local skipCountdown = false -- admin panel: start the current countdown's wave now
+local adminUsed = false -- an admin skipped/jumped/killed this match: it does not count for saved stats
 
 local function setState(newState: string)
 	state = newState
@@ -174,6 +176,11 @@ end
 
 local function waveCleared(waveIndex: number)
 	wavesSurvived = waveIndex
+	if not adminUsed then
+		for _, player in Players:GetPlayers() do
+			DataService.RecordWave(player, waveIndex)
+		end
+	end
 	local bonus = WaveConfig.CompletionBonus + WaveConfig.CompletionBonusPerWave * waveIndex
 	for _, player in Players:GetPlayers() do
 		EconomyService.AddCash(player, bonus)
@@ -185,6 +192,7 @@ local function waveCleared(waveIndex: number)
 end
 
 local function resetMatch()
+	adminUsed = false
 	EnemyService.ClearAll()
 	teamKills = 0
 	wavesSurvived = 0
@@ -200,6 +208,7 @@ end
 -- Returns "Victory", "Defeat" or "Abandoned".
 local function runMatch(): string
 	local waveIndex = math.clamp(Config.Debug.StartWave or 1, 1, #WaveDefinitions)
+	adminUsed = adminUsed or waveIndex > 1 -- debug start wave: not a real run
 	jumpTarget = nil
 	local countdownOverride: number? = nil
 	while waveIndex <= #WaveDefinitions do
@@ -237,8 +246,10 @@ local function endMatch(victory: boolean)
 
 	local resultRemote = Remotes.Get("MatchResult")
 	for _, player in Players:GetPlayers() do
-		local best = math.max(player:GetAttribute("BestWave") or 0, wavesSurvived)
-		player:SetAttribute("BestWave", best)
+		local best = if adminUsed then player:GetAttribute("BestWave") or 0 else DataService.RecordWave(player, wavesSurvived)
+		if victory and not adminUsed then
+			DataService.AddVictory(player)
+		end
 		resultRemote:FireClient(player, {
 			Victory = victory,
 			WavesSurvived = wavesSurvived,
@@ -254,6 +265,14 @@ local function endMatch(victory: boolean)
 	for t = WaveConfig.ResultsSeconds, 1, -1 do
 		workspace:SetAttribute("Countdown", t)
 		task.wait(1)
+	end
+end
+
+-- Admin tools were used this match: its kills, waves and victory are not saved.
+function WaveService.MarkAdminUsed()
+	if not adminUsed then
+		adminUsed = true
+		notifyAll("ADMIN TOOLS USED: THIS MATCH DOES NOT COUNT FOR STATS", "info")
 	end
 end
 
@@ -314,6 +333,9 @@ function WaveService.Start()
 		workspace:SetAttribute("WaveKills", waveKills)
 		if killer then
 			matchKills[killer] = (matchKills[killer] or 0) + 1
+			if not adminUsed then
+				DataService.AddKill(killer)
+			end
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)

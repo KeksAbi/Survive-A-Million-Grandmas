@@ -11,6 +11,28 @@ return {
 		StartWave = 1,
 	},
 
+	-- Gamepasses and developer products. Create them in the Creator Dashboard (your experience > Monetization >
+	-- Passes / Developer Products) and paste the ids here. Id 0 = not set up: its button shows "COMING SOON".
+	-- Price is only shown as a fallback; the real price comes from Roblox.
+	Monetization = {
+		Passes = {
+			DoubleCash = { Id = 0, Price = 149, Name = "2X CASH", Description = "Double cash from every grandma" },
+			VIP = { Id = 0, Price = 299, Name = "VIP", Description = "VIP tag, golden gun, golden sparkles" },
+			SkinPack = { Id = 0, Price = 99, Name = "SKIN PACK", Description = "3 extra gun skins" },
+		},
+		Products = {
+			Revive = { Id = 0, Price = 29, Name = "REVIVE" }, -- one revive credit (used right away if dead)
+		},
+		RevivesPerWave = 1, -- revive credits usable per player per wave
+	},
+
+	Data = {
+		StoreName = "PlayerStats_v1", -- change the suffix only to start everyone from zero
+		AutosaveSeconds = 120,
+		Retries = 3, -- per DataStore call, with 1 s, 2 s, 4 s waits
+		MaxStoredReceipts = 50, -- processed purchase ids kept per player (stops double grants)
+	},
+
 	Admin = {
 		-- Who gets the admin panel (F2 or the ADMIN button, top right): these user ids, plus the place owner
 		-- and everyone in a Studio playtest. The server checks every admin request again.

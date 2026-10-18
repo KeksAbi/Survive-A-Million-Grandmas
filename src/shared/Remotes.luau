@@ -10,6 +10,8 @@
 --   ThrowGrenade(target: Vector3)               throw toward a ground point (server clamps the distance)
 --   Admin(action: string, value: number?)       admin panel ("JumpToWave" n, "SkipWave", "SkipCountdown",
 --       "AddCash", "GiveWeapons", "KillAll", "Heal"); ignored unless the player is an admin (AdminService)
+--   SelectSkin(skinId: string)                 equip an owned gun skin (SkinDefinitions)
+--   UseRevive()                                 spend a revive credit while dead during a wave
 -- Server -> Client:
 --   HitFeedback(position: Vector3, damage: number, killed: boolean)   to the shooter only
 --   ShotFx(shooterUserId: number, weaponId: string, origin: Vector3, endPosition: Vector3)   to the other players
@@ -24,7 +26,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Fire", "Reload", "Equip", "Purchase", "ThrowGrenade", "Admin", "HitFeedback", "ShotFx", "WorldFx", "Notify", "MatchResult" }
+local NAMES = { "Fire", "Reload", "Equip", "Purchase", "ThrowGrenade", "Admin", "SelectSkin", "UseRevive", "HitFeedback", "ShotFx", "WorldFx", "Notify", "MatchResult" }
 
 local Remotes = {}
 
