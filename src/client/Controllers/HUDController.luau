@@ -318,6 +318,44 @@ local function refreshWave()
 	end
 end
 
+-- big center countdown during the intermission ---------------------------------
+
+local function buildCountdown(center: Frame)
+	ui.CountdownFrame = center
+	center.Visible = false
+	ui.CountdownTitle = label({ Text = "WAVE 1 STARTS IN", Size = UDim2.new(1, 0, 0, 44), Parent = center })
+	ui.CountdownNumber = label({
+		Text = "10",
+		TextColor3 = THEME.Gold,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, 120),
+		Size = UDim2.fromOffset(200, 130),
+		Parent = center,
+	})
+	ui.CountdownNumber:FindFirstChildOfClass("UIStroke").Thickness = 5
+end
+
+local lastCountdown = nil
+local function refreshCountdown()
+	local matchState = workspace:GetAttribute("MatchState")
+	local countdown = workspace:GetAttribute("Countdown") or 0
+	local show = matchState == "Intermission" and countdown > 0
+	ui.CountdownFrame.Visible = show
+	if not show then
+		lastCountdown = nil
+		return
+	end
+	ui.CountdownTitle.Text = "WAVE " .. tostring(workspace:GetAttribute("Wave") or 1) .. " STARTS IN"
+	ui.CountdownNumber.Text = tostring(countdown)
+	ui.CountdownNumber.TextColor3 = if countdown <= 3 then THEME.Red else THEME.Gold
+	if countdown ~= lastCountdown then
+		lastCountdown = countdown
+		-- pop: start big, settle to normal size
+		ui.CountdownNumber.Size = UDim2.fromOffset(280, 182)
+		TweenService:Create(ui.CountdownNumber, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(200, 130) }):Play()
+	end
+end
+
 -- results screen ------------------------------------------------------------
 
 local RESULT_ROWS = {
@@ -522,6 +560,7 @@ function HUDController.Init()
 	buildWaveBanner(top)
 	buildBottom(bottom, ammoRoot)
 	buildNotification(top)
+	buildCountdown(container("Countdown", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.36), Vector2.new(460, 190)))
 	buildResults(container("Results", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Vector2.new(440, 400)))
 	rescale()
 	ui.Status = label({
@@ -552,6 +591,7 @@ function HUDController.Init()
 	workspace.AttributeChanged:Connect(function(name)
 		if name == "MatchState" or name == "Wave" or name == "WaveKills" or name == "WaveTotal" or name == "Countdown" then
 			refreshWave()
+			refreshCountdown()
 		end
 		if name == "MatchState" and workspace:GetAttribute("MatchState") == "Intermission" then
 			HUDController.HideResults() -- new match started
@@ -568,6 +608,7 @@ function HUDController.Init()
 	refreshCash()
 	refreshWeapon()
 	refreshWave()
+	refreshCountdown()
 end
 
 return HUDController
