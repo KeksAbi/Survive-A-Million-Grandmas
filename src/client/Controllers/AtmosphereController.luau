@@ -14,7 +14,7 @@ local WaveDefinitions = require(Shared.WaveDefinitions)
 local AtmosphereController = {}
 
 local active = false
-local day = nil -- lighting before the mood started
+local day: { [string]: any }? = nil -- lighting before the mood started
 local grade: ColorCorrectionEffect? = nil
 
 local function tween(instance: Instance, goal: { [string]: any })
@@ -46,19 +46,18 @@ local function refresh()
 			OutdoorAmbient = Lighting.OutdoorAmbient,
 			Ambient = Lighting.Ambient,
 		}
-		if not grade then
-			grade = Instance.new("ColorCorrectionEffect")
-			grade.Name = "BossWaveGrade"
-			grade.Parent = Lighting
-		end
+		local effect = grade or Instance.new("ColorCorrectionEffect")
+		effect.Name = "BossWaveGrade"
+		effect.Parent = Lighting
+		grade = effect
 		tween(Lighting, { ClockTime = mood.ClockTime, Brightness = mood.Brightness, OutdoorAmbient = mood.OutdoorAmbient, Ambient = mood.Ambient })
-		tween(grade, { TintColor = mood.TintColor, Contrast = mood.Contrast, Saturation = mood.Saturation })
+		tween(effect, { TintColor = mood.TintColor, Contrast = mood.Contrast, Saturation = mood.Saturation })
 	else
 		if day then
-			tween(Lighting, day)
+			tween(Lighting, day :: { [string]: any })
 		end
 		if grade then
-			tween(grade, { TintColor = Color3.new(1, 1, 1), Contrast = 0, Saturation = 0 })
+			tween(grade :: ColorCorrectionEffect, { TintColor = Color3.new(1, 1, 1), Contrast = 0, Saturation = 0 })
 		end
 	end
 end
