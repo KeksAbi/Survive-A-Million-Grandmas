@@ -159,7 +159,15 @@ local function tryFire()
 		return
 	end
 	local aimPoint = getAimPoint(origin.Y)
-	local direction = aimPoint - origin
+	-- direction from the head (not the gun tip): the gun tip can be past an enemy that is touching you,
+	-- which would turn the shot around
+	local head = player.Character and player.Character:FindFirstChild("Head")
+	local aimFrom = if head then head.Position else origin
+	local level = aimPoint.Y == origin.Y and not isFirstPerson() -- cursor on the ground: a flat shot
+	local direction = aimPoint - aimFrom
+	if level then
+		direction = Vector3.new(direction.X, 0, direction.Z)
+	end
 	if direction.Magnitude < 1 then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		direction = if root then root.CFrame.LookVector else camera.CFrame.LookVector -- cursor on yourself
@@ -169,7 +177,8 @@ local function tryFire()
 		local assisted = findAssistTarget(origin, direction)
 		if assisted then
 			aimPoint = assisted
-			direction = (assisted - origin).Unit
+			level = false
+			direction = (assisted - aimFrom).Unit
 		end
 	end
 	fireRemote:FireServer(origin, direction)
@@ -178,7 +187,7 @@ local function tryFire()
 	Effects.MuzzleFlash(origin)
 	Effects.PlaySound("Fire_" .. weapon.Id, origin)
 	local distance = weapon.Range -- level shots keep flying past the cursor
-	if aimPoint.Y ~= origin.Y or isFirstPerson() then
+	if not level then
 		distance = math.min((aimPoint - origin).Magnitude, weapon.Range) -- aimed at an enemy: stop there
 	end
 	for _ = 1, weapon.Pellets do

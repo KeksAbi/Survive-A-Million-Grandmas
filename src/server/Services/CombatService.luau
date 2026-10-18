@@ -269,15 +269,18 @@ local function onFire(player: Player, origin: any, direction: any)
 	local firstEnd: Vector3? = nil
 	for _ = 1, weapon.Pellets do
 		local dir = spreadDirection(aim, weapon.SpreadDegrees)
-		local result = workspace:Raycast(origin, dir * weapon.Range, params)
+		-- start behind the muzzle so a grandma pressed against the gun is still hit
+		local backOffset = Config.Combat.RayBackOffset
+		local rayStart = origin - dir * backOffset
+		local result = workspace:Raycast(rayStart, dir * (weapon.Range + backOffset), params)
 		local endPosition = if result then result.Position else origin + dir * weapon.Range
 		firstEnd = firstEnd or endPosition
 		local enemyId = if result then EnemyService.GetEnemyIdFromInstance(result.Instance) else nil
 		local position = endPosition
 		if not enemyId then
 			-- near miss: forgive small lag offsets (stops at walls/ground the ray already hit)
-			local maxDistance = if result then result.Distance else weapon.Range
-			enemyId, position = EnemyService.FindEnemyNearRay(origin, dir, maxDistance, Config.Combat.HitTolerance)
+			local maxDistance = if result then result.Distance else weapon.Range + backOffset
+			enemyId, position = EnemyService.FindEnemyNearRay(rayStart, dir, maxDistance, Config.Combat.HitTolerance)
 		end
 		if enemyId then
 			damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage

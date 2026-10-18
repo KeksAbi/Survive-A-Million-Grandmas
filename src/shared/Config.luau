@@ -61,6 +61,9 @@ return {
 		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
 		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.
 		HitTolerance = 1.2,
+		-- Hit checks start this far BEHIND the muzzle (inside the shooter, which bullets ignore). Point-blank
+		-- enemies overlap the gun tip, and a ray that starts inside a part never hits that part.
+		RayBackOffset = 4,
 	},
 
 	Grenade = {
