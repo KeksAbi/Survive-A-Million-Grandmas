@@ -45,16 +45,24 @@ local function findBoss(enemyId: number): Model?
 	return nil
 end
 
+-- Never yields: it used to WaitForChild + require Roblox's PlayerModule inline, which could hang and stop
+-- the whole cutscene right after the HUD was hidden (camera never moved, HUD never came back).
 local function setControls(enabled: boolean)
-	pcall(function()
-		-- PlayerModule is Roblox's built-in control/camera module (inserted at runtime)
-		local playerModule = (require :: any)(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
-		local controls = playerModule:GetControls()
-		if enabled then
-			controls:Enable()
-		else
-			controls:Disable()
-		end
+	task.spawn(function()
+		pcall(function()
+			local scripts = player:FindFirstChild("PlayerScripts")
+			local module = scripts and scripts:FindFirstChild("PlayerModule")
+			if not module then
+				return
+			end
+			-- PlayerModule is Roblox's built-in control/camera module (inserted at runtime)
+			local controls = (require :: any)(module):GetControls()
+			if enabled then
+				controls:Enable()
+			else
+				controls:Disable()
+			end
+		end)
 	end)
 end
 
@@ -234,9 +242,15 @@ function BossCutsceneController.Play(enemyId: number, seconds: number, groundPos
 
 	local ok, err = pcall(function()
 		HUDController.SetCutscene(true)
-		setControls(false)
 		camera.CameraType = Enum.CameraType.Scriptable
+		setControls(false)
 		restoreWorld = darkenWorld()
+		task.delay(seconds + 2, function()
+			if not finished then
+				warn("[BossCutscene] watchdog: cutscene did not end on its own, restoring the game view")
+				finish()
+			end
+		end)
 
 		-- picks up the boss model as soon as it exists on this client
 		local function acquireBoss()

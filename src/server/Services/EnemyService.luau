@@ -242,6 +242,17 @@ function EnemyService.FindEnemyNearRay(origin: Vector3, direction: Vector3, maxD
 	return bestId, bestPoint
 end
 
+-- Ids of all living enemies (admin panel "kill all").
+function EnemyService.GetAliveIds(): { number }
+	local ids = {}
+	for id, enemy in enemies do
+		if enemy.Alive then
+			table.insert(ids, id)
+		end
+	end
+	return ids
+end
+
 function EnemyService.GetActiveCount(): number
 	return activeCount
 end

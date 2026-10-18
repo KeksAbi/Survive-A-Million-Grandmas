@@ -32,6 +32,8 @@ local waveKills = 0
 local teamKills = 0
 local wavesSurvived = 0
 local matchKills: { [Player]: number } = {}
+local jumpTarget: number? = nil -- admin panel: the next wave to jump to (cuts the current countdown/wave short)
+local skipCountdown = false -- admin panel: start the current countdown's wave now
 
 local function setState(newState: string)
 	state = newState
@@ -87,23 +89,33 @@ local function setWaveAttributes(wave: number, kills: number, total: number)
 end
 
 -- Countdown before a wave. Returns false if everyone left.
-local function intermission(waveIndex: number): boolean
+local function intermission(waveIndex: number, overrideSeconds: number?): boolean
 	setState("Intermission")
 	setWaveAttributes(waveIndex, 0, 0)
 	notifyAll("WAVE " .. waveIndex .. " INCOMING!", "info")
-	local seconds = if waveIndex == 1 then WaveConfig.FirstIntermissionSeconds else WaveConfig.IntermissionSeconds
+	local seconds = overrideSeconds or if waveIndex == 1 then WaveConfig.FirstIntermissionSeconds else WaveConfig.IntermissionSeconds
+	skipCountdown = false
 	for t = seconds, 1, -1 do
 		workspace:SetAttribute("Countdown", t)
-		task.wait(1)
+		for _ = 1, 10 do
+			task.wait(0.1)
+			if jumpTarget or skipCountdown then
+				break
+			end
+		end
 		if #Players:GetPlayers() == 0 then
 			return false
 		end
+		if jumpTarget or skipCountdown then
+			break
+		end
 	end
+	skipCountdown = false
 	workspace:SetAttribute("Countdown", 0)
 	return true
 end
 
--- Spawns the wave gradually and waits for it to end. Returns "Cleared", "Defeat" or "Abandoned".
+-- Spawns the wave gradually and waits for it to end. Returns "Cleared", "Defeat", "Abandoned" or "Jump".
 local function runWave(waveIndex: number): string
 	local def = WaveDefinitions[waveIndex]
 	local playerCount = #Players:GetPlayers()
@@ -122,6 +134,9 @@ local function runWave(waveIndex: number): string
 	while true do
 		if #Players:GetPlayers() == 0 then
 			return "Abandoned"
+		end
+		if jumpTarget then
+			return "Jump"
 		end
 		if #PlayerService.GetLivingPlayers() == 0 then
 			return "Defeat"
@@ -184,16 +199,33 @@ end
 
 -- Returns "Victory", "Defeat" or "Abandoned".
 local function runMatch(): string
-	local firstWave = math.clamp(Config.Debug.StartWave or 1, 1, #WaveDefinitions)
-	for waveIndex = firstWave, #WaveDefinitions do
-		if not intermission(waveIndex) then
+	local waveIndex = math.clamp(Config.Debug.StartWave or 1, 1, #WaveDefinitions)
+	jumpTarget = nil
+	local countdownOverride: number? = nil
+	while waveIndex <= #WaveDefinitions do
+		local ready = intermission(waveIndex, countdownOverride)
+		countdownOverride = nil
+		if not ready then
 			return "Abandoned"
 		end
-		local outcome = runWave(waveIndex)
-		if outcome ~= "Cleared" then
+		local outcome = if jumpTarget then "Jump" else runWave(waveIndex)
+		if outcome == "Jump" then
+			-- admin jump: clear the field, everyone back in, straight to that wave's countdown
+			waveIndex = jumpTarget :: number
+			jumpTarget = nil
+			EnemyService.ClearAll()
+			wavesSurvived = waveIndex - 1
+			countdownOverride = Config.Admin.JumpCountdownSeconds
+			PlayerService.RespawnAndHealAll()
+			if waveIndex > #WaveDefinitions then
+				return "Victory"
+			end
+		elseif outcome == "Cleared" then
+			waveCleared(waveIndex)
+			waveIndex += 1
+		else
 			return outcome
 		end
-		waveCleared(waveIndex)
 	end
 	return "Victory"
 end
@@ -223,6 +255,36 @@ local function endMatch(victory: boolean)
 		workspace:SetAttribute("Countdown", t)
 		task.wait(1)
 	end
+end
+
+-- Admin panel: jump to a wave (1..#waves; one past the last = win). Only during a running match.
+function WaveService.JumpToWave(waveIndex: number): boolean
+	if state ~= "Intermission" and state ~= "Wave" then
+		return false
+	end
+	jumpTarget = math.clamp(math.floor(waveIndex), 1, #WaveDefinitions + 1)
+	return true
+end
+
+-- Admin panel: skip the rest of the wave (counts as cleared: the next wave's countdown follows).
+function WaveService.SkipWave(): boolean
+	local current = workspace:GetAttribute("Wave")
+	if typeof(current) ~= "number" then
+		return false
+	end
+	if state == "Intermission" then
+		return WaveService.SkipCountdown() -- already between waves: start this one now
+	end
+	return WaveService.JumpToWave(current + 1)
+end
+
+-- Admin panel: end the countdown now.
+function WaveService.SkipCountdown(): boolean
+	if state ~= "Intermission" then
+		return false
+	end
+	skipCountdown = true
+	return true
 end
 
 function WaveService.Start()

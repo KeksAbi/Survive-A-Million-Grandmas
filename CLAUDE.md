@@ -28,6 +28,8 @@ Server services (`src/server/Services`):
 - `CombatService`: weapon ownership, equipped weapon, ammo, reload, fire-rate, server raycasts, damage.
 - `ShopService`: `Purchase` remote: weapons (WeaponDefinitions.Cost) and grenades; buys auto-equip.
 - `GrenadeService`: grenade count (`Grenades` attr), `ThrowGrenade` remote, server-side landing + explosion.
+- `AdminService`: admin panel requests (`Admin` remote: jump to wave, skip wave/countdown, cash, all guns,
+  kill all, heal). Admins = `Config.Admin.UserIds`, the place owner, everyone in Studio; player attr `Admin`.
 - `WaveService`: the single match loop: Waiting -> (Intermission -> Wave) x10 -> Victory/Defeat -> results
   -> new match. Spawns waves gradually, scales by player count, bonuses, respawns, `MatchResult`, `MatchEnded` signal.
 
@@ -41,7 +43,7 @@ fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in 
 `WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `MobileController` (touch
 buttons FIRE/R/G; touch aims through the screen center with aim assist), `EnemyBarController` (health bars over
 damaged grandmas from the `HealthRatio` attribute), `BossCutsceneController` (7 s MEGA GRANDMA intro: rises
-out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `SpectateController` (follow a teammate
+out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow
@@ -115,6 +117,7 @@ Report honestly what was tested and what was not.
   keep arena props small and round-ish; long walls or narrow corridors would trap them.
 - Mobile controls are untested on a real phone (use Studio's device emulator first).
 - Sounds: `Config.Sounds` ids are empty until Alex picks audio in the Creator Store; the game is silent until then.
+- Admin panel (F2): wave buttons 1-10 (red = boss), skip wave, start now, +$, all guns, kill all, heal.
 - `Config.Debug.GiveAllWeapons` (false): set true to own every gun for testing.
 - In first person the own character (and gun) is hidden by Roblox; there is no viewmodel yet.
 

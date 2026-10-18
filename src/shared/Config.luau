@@ -11,6 +11,16 @@ return {
 		StartWave = 1,
 	},
 
+	Admin = {
+		-- Who gets the admin panel (F2 or the ADMIN button, top right): these user ids, plus the place owner
+		-- and everyone in a Studio playtest. The server checks every admin request again.
+		UserIds = {} :: { number },
+		AllowPlaceOwner = true,
+		AllowInStudio = true,
+		CashAmount = 1000, -- "+$" button
+		JumpCountdownSeconds = 3, -- countdown after jumping to a wave
+	},
+
 	Camera = {
 		-- Normal Roblox camera (right-click drag turns it, mouse wheel zooms), just starting further out and higher.
 		StartZoom = 28, -- studs from the character when spawning

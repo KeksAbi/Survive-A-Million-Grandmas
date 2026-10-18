@@ -16,6 +16,7 @@ local CombatService = require(Services.CombatService)
 local GrenadeService = require(Services.GrenadeService)
 local ShopService = require(Services.ShopService)
 local WaveService = require(Services.WaveService)
+local AdminService = require(Services.AdminService)
 
 Remotes.Init()
 MapBuilder.Build()
@@ -27,5 +28,6 @@ GrenadeService.Init()
 ShopService.Init()
 PlayerService.Init() -- after the services that listen to CharacterSpawned
 WaveService.Start() -- the match loop
+AdminService.Init()
 
 print("[SurviveMillionGrandmas] server started")
