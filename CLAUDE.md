@@ -43,7 +43,8 @@ fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in 
 `WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `MobileController` (touch
 buttons FIRE/R/G; touch aims through the screen center with aim assist), `EnemyBarController` (health bars over
 damaged grandmas from the `HealthRatio` attribute), `BossCutsceneController` (7 s MEGA GRANDMA intro: rises
-out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `SpectateController` (follow a teammate
+out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `AtmosphereController` (dark red
+dusk during boss waves, `Config.Boss.WaveLighting`), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow
