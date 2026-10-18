@@ -33,7 +33,7 @@ World (`src/server/World`): `MapBuilder` (whole map from primitives at server st
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
-body faces the cursor, fire, effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
+fire toward the cursor, effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow

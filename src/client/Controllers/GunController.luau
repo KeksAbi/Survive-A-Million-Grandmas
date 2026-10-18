@@ -1,6 +1,6 @@
 --!nonstrict
--- Free-mouse aiming. The body turns to face the crosshair (= mouse cursor); bullets fly
--- toward it. The client draws effects immediately and sends Fire(origin, direction); the server re-checks
+-- Free-mouse aiming: the crosshair replaces the mouse cursor and bullets fly toward it (the body is not
+-- turned; it faces where the player walks). The client draws effects immediately and sends Fire(origin, direction); the server re-checks
 -- everything and applies damage (CombatService).
 
 local Players = game:GetService("Players")
@@ -152,11 +152,11 @@ local function onCharacterAdded(character: Model)
 	if not humanoid then
 		return
 	end
-	humanoid.AutoRotate = false -- aimStep turns the body toward the cursor
+	humanoid.AutoRotate = true -- the body faces the walking direction (first person: the camera turns it)
 	triggerHeld = false
 end
 
--- Every frame after the camera: the crosshair replaces the mouse cursor and the body faces it.
+-- Every frame after the camera: the crosshair replaces the mouse cursor.
 local function aimStep()
 	local humanoid = getHumanoid()
 	local character = player.Character
@@ -169,12 +169,6 @@ local function aimStep()
 	end
 	UserInputService.MouseIconEnabled = false
 	HUDController.SetCrosshair(getAimScreenPoint())
-
-	local aim = getAimPoint(root.Position.Y)
-	local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
-	if flat.Magnitude > 1 then
-		root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
-	end
 end
 
 function GunController.Init()
