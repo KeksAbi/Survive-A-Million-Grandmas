@@ -46,7 +46,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3, Support: Vect
 			{ "RearSight", Vector3.new(0.2, 0.08, 0.08), CFrame.new(0, 0.38, 0.18), "Dark" },
 		},
 		Muzzle = Vector3.new(0, 0.2, -1.36),
-		Support = Vector3.new(-0.12, -0.35, -0.05),
+		Support = Vector3.new(-0.2, -0.42, 0),
 	},
 	Shotgun = {
 		Parts = {
@@ -60,7 +60,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3, Support: Vect
 			{ "Bead", Vector3.new(0.07, 0.07, 0.07), CFrame.new(0, 0.31, -2.6), "Accent" },
 		},
 		Muzzle = Vector3.new(0, 0.17, -2.72),
-		Support = Vector3.new(0, -0.2, -1.2),
+		Support = Vector3.new(-0.05, -0.38, -1.15),
 	},
 	AssaultRifle = {
 		Parts = {
@@ -77,7 +77,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3, Support: Vect
 			{ "Scope", Vector3.new(0.5, 0.2, 0.2), CFrame.new(0, 0.45, -0.25) * Z_AXIS, "Accent", Enum.PartType.Cylinder },
 		},
 		Muzzle = Vector3.new(0, 0.12, -2.82),
-		Support = Vector3.new(0, -0.1, -1.35),
+		Support = Vector3.new(-0.05, -0.32, -1.3),
 	},
 }
 
@@ -107,7 +107,8 @@ local function finish(model: Model, muzzle: Vector3, support: Vector3, base: CFr
 	-- points back (+Z). Right hand: thumb (hand LookVector) up. Left hand under the gun: palm up, thumb left.
 	local right = Instance.new("Attachment")
 	right.Name = "RightGrip"
-	right.CFrame = CFrame.fromMatrix(Vector3.new(0.04, -0.25, 0.05), Vector3.xAxis, Vector3.zAxis)
+	-- hand centers sit beside / under the gun (a blocky hand centered on the grip would be inside the gun)
+	right.CFrame = CFrame.fromMatrix(Vector3.new(0.18, -0.32, 0.08), Vector3.xAxis, Vector3.zAxis)
 	right.Parent = handle
 	local left = Instance.new("Attachment")
 	left.Name = "LeftGrip"
@@ -254,7 +255,7 @@ local function fromImported(template: Model, weapon, skin, base: CFrame): Model
 	end
 	-- left hand: under the barrel, 45% of the way to the muzzle (short guns: under the right hand)
 	local muzzleLocal = gripSpace:PointToObjectSpace(muzzleWorld)
-	local support = if -muzzleLocal.Z > 2.5 then Vector3.new(0, -0.15, muzzleLocal.Z * 0.45) else Vector3.new(-0.12, -0.35, -0.05)
+	local support = if -muzzleLocal.Z > 2.5 then Vector3.new(-0.05, -0.35, muzzleLocal.Z * 0.45) else Vector3.new(-0.2, -0.42, 0)
 	return finish(model, muzzleLocal, support, base)
 end
 
