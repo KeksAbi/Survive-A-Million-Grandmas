@@ -1,6 +1,7 @@
 --!nonstrict
--- Over-the-shoulder shooting. The client aims (camera center ray), draws effects immediately and sends
--- Fire(origin, direction). The server re-checks everything and applies damage (CombatService).
+-- Mouse aiming for the top-down camera. The body turns to face the crosshair (= mouse cursor); bullets fly
+-- toward it. The client draws effects immediately and sends Fire(origin, direction); the server re-checks
+-- everything and applies damage (CombatService).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,9 +21,6 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local GunController = {}
-
-local SHOULDER_OFFSET = Vector3.new(2, 0.6, 0)
-local CAMERA_DISTANCE = 11
 
 local fireRemote = Remotes.Get("Fire")
 local reloadRemote = Remotes.Get("Reload")
@@ -57,13 +55,25 @@ local function getMuzzlePosition(): Vector3?
 	return head and head.Position
 end
 
--- Where the crosshair (screen center) points in the world.
-local function getAimPoint(range: number): Vector3
+-- Where the shot should go. The camera ray through the mouse cursor:
+--   hits an enemy  -> aim exactly at that point;
+--   hits anything else (ground, props) -> aim at that spot raised to `muzzleHeight`, so the bullet flies
+--   level toward the cursor and keeps going instead of diving into the ground.
+local function getAimPoint(muzzleHeight: number): Vector3
 	aimParams.FilterDescendantsInstances = { player.Character, Effects.Folder }
-	local viewport = camera.ViewportSize
-	local ray = camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
-	local result = workspace:Raycast(ray.Origin, ray.Direction * (range + 20), aimParams)
-	return if result then result.Position else ray.Origin + ray.Direction * (range + 20)
+	local mouse = UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+	local result = workspace:Raycast(ray.Origin, ray.Direction * 500, aimParams)
+	if result then
+		local enemies = workspace:FindFirstChild("Enemies")
+		if enemies and result.Instance:IsDescendantOf(enemies) then
+			return result.Position
+		end
+		return Vector3.new(result.Position.X, muzzleHeight, result.Position.Z)
+	end
+	-- cursor in the sky: intersect the ray with the horizontal plane at muzzle height
+	local t = if math.abs(ray.Direction.Y) > 0.001 then (muzzleHeight - ray.Origin.Y) / ray.Direction.Y else 100
+	return ray.Origin + ray.Direction * math.max(t, 1)
 end
 
 local function spreadDirection(direction: Vector3, degrees: number): Vector3
@@ -95,15 +105,22 @@ local function tryFire()
 	if not origin then
 		return
 	end
-	local aimPoint = getAimPoint(weapon.Range)
+	local aimPoint = getAimPoint(origin.Y)
 	local direction = aimPoint - origin
-	direction = if direction.Magnitude > 0.1 then direction.Unit else camera.CFrame.LookVector
+	if direction.Magnitude < 1 then
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		direction = if root then root.CFrame.LookVector else camera.CFrame.LookVector -- cursor on yourself
+	end
+	direction = direction.Unit
 	fireRemote:FireServer(origin, direction)
 
 	-- instant local feedback (cosmetic; the server decides real hits)
 	Effects.MuzzleFlash(origin)
 	Effects.PlaySound("Fire_" .. weapon.Id, origin)
-	local distance = math.min((aimPoint - origin).Magnitude, weapon.Range)
+	local distance = weapon.Range -- level shots keep flying past the cursor
+	if aimPoint.Y ~= origin.Y then
+		distance = math.min((aimPoint - origin).Magnitude, weapon.Range) -- aimed at an enemy: stop there
+	end
 	for _ = 1, weapon.Pellets do
 		local dir = if weapon.Pellets > 1 then spreadDirection(direction, weapon.SpreadDegrees) else direction
 		Effects.Trail(origin, origin + dir * distance)
@@ -115,30 +132,27 @@ local function onCharacterAdded(character: Model)
 	if not humanoid then
 		return
 	end
-	humanoid.AutoRotate = false
-	humanoid.CameraOffset = SHOULDER_OFFSET
-	player.CameraMinZoomDistance = CAMERA_DISTANCE
-	player.CameraMaxZoomDistance = CAMERA_DISTANCE
+	humanoid.AutoRotate = false -- aimStep turns the body toward the cursor
 	triggerHeld = false
 end
 
--- Runs right after the default camera: lock the mouse to the crosshair and turn the body to the camera.
+-- Every frame after the camera: the crosshair replaces the mouse cursor and the body faces it.
 local function aimStep()
 	local humanoid = getHumanoid()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	if not humanoid or not root or HUDController.ModalOpen then
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
+		HUDController.SetCrosshair(nil)
 		return
 	end
-	if not UserInputService.TouchEnabled or UserInputService.MouseEnabled then
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		UserInputService.MouseIconEnabled = false
-	end
-	local look = camera.CFrame.LookVector
-	local flat = Vector3.new(look.X, 0, look.Z)
-	if flat.Magnitude > 0.01 then
+	UserInputService.MouseIconEnabled = false
+	HUDController.SetCrosshair(UserInputService:GetMouseLocation())
+
+	local aim = getAimPoint(root.Position.Y)
+	local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+	if flat.Magnitude > 1 then
 		root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
 	end
 end
@@ -148,7 +162,7 @@ function GunController.Init()
 	if player.Character then
 		task.spawn(onCharacterAdded, player.Character)
 	end
-	RunService:BindToRenderStep("GunAim", Enum.RenderPriority.Camera.Value + 1, aimStep)
+	RunService:BindToRenderStep("GunAim", Enum.RenderPriority.Camera.Value + 2, aimStep)
 
 	InputController.FireBegan:Connect(function()
 		triggerHeld = true

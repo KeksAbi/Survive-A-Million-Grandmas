@@ -12,10 +12,12 @@ end)
 
 local InputController = require(Controllers.InputController)
 local HUDController = require(Controllers.HUDController)
+local CameraController = require(Controllers.CameraController)
 local GunController = require(Controllers.GunController)
 local SpectateController = require(Controllers.SpectateController)
 
 InputController.Init()
 HUDController.Init()
+CameraController.Init()
 GunController.Init()
 SpectateController.Init()

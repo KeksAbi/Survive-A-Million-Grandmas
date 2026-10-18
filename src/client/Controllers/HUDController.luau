@@ -87,6 +87,7 @@ end
 local function buildCrosshair(root: Frame)
 	local cross = make("Frame", {
 		Name = "Crosshair",
+		ZIndex = 10,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(36, 36),
@@ -127,6 +128,7 @@ local function buildCrosshair(root: Frame)
 		BackgroundTransparency = 1,
 		Parent = cross,
 	})
+	ui.Crosshair = cross
 	ui.HitBars = {}
 	for _, rotation in { 45, -45 } do
 		local bar = make("Frame", {
@@ -491,6 +493,16 @@ function HUDController.ShowResults(result)
 			HUDController.HideResults()
 		end
 	end)
+end
+
+-- crosshair = mouse cursor (GunController moves it every frame; nil hides it)
+function HUDController.SetCrosshair(screenPosition: Vector2?)
+	if screenPosition then
+		ui.Crosshair.Visible = true
+		ui.Crosshair.Position = UDim2.fromOffset(screenPosition.X, screenPosition.Y)
+	else
+		ui.Crosshair.Visible = false
+	end
 end
 
 -- status line (eliminated / spectating) ---------------------------------------

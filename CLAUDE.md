@@ -31,8 +31,9 @@ Server services (`src/server/Services`):
 World (`src/server/World`): `MapBuilder` (whole map from primitives at server start, spawn points),
 `EnemyFactory` (enemy models from welded parts).
 
-Client (`src/client`): `InputController` (keys -> signals), `GunController` (shoulder camera, aim, fire,
-effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
+Client (`src/client`): `InputController` (keys -> signals), `CameraController` (fixed-angle top-down follow
+camera, mouse-wheel zoom, follows the spectated player while dead), `GunController` (crosshair = mouse cursor,
+body faces the cursor, fire, effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow

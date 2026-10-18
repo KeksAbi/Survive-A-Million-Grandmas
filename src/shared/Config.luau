@@ -7,6 +7,16 @@ return {
 		GiveAllWeapons = true,
 	},
 
+	Camera = {
+		-- Top-down follow camera: offset from the player (studs). Pitch = atan(Height / Distance) ~ 55 deg.
+		Height = 34,
+		Distance = 24,
+		FieldOfView = 50,
+		ZoomMin = 0.7, -- mouse wheel zoom range (multiplies the offset)
+		ZoomMax = 1.4,
+		Smoothness = 12, -- higher = follows faster
+	},
+
 	Player = {
 		MaxHealth = 100,
 		StartingCash = 40,
