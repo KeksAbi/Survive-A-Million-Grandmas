@@ -267,6 +267,16 @@ local function validateClaim(enemyId: number, eye: Vector3, origin: Vector3, aim
 	return true, origin + aim * t
 end
 
+-- Why a shot was thrown away, in Output (at most once per 2 s per player), to find wrong rejections.
+local lastRejectWarn: { [Player]: number } = {}
+local function reject(player: Player, reason: string)
+	local now = os.clock()
+	if now - (lastRejectWarn[player] or 0) >= 2 then
+		lastRejectWarn[player] = now
+		warn("[CombatService] shot from " .. player.Name .. " rejected: " .. reason)
+	end
+end
+
 local function onFire(player: Player, origin: any, direction: any, aimedEnemyId: any)
 	local state = states[player]
 	if not state or typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
@@ -280,14 +290,21 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 	end
 	local character = getLiveCharacter(player)
 	local head = character and character:FindFirstChild("Head")
-	if not head or (origin - head.Position).Magnitude > Config.Combat.MaxShotOriginDistance then
+	if not head then
 		return
 	end
-	-- the muzzle may not be on the other side of a wall (shooting from cover)
+	local originDistance = (origin - head.Position).Magnitude
+	if originDistance > Config.Combat.MaxShotOriginDistance then
+		reject(player, string.format("gun muzzle %.1f studs from the head (max %d)", originDistance, Config.Combat.MaxShotOriginDistance))
+		return
+	end
+	-- the muzzle may not be on the other side of a wall (shooting from cover): only solid map parts count
 	local map = workspace:FindFirstChild("Map")
 	if map then
 		mapParams.FilterDescendantsInstances = { map }
-		if workspace:Raycast(head.Position, origin - head.Position, mapParams) then
+		local blocked = workspace:Raycast(head.Position, origin - head.Position, mapParams)
+		if blocked and blocked.Instance.CanCollide and blocked.Instance.Transparency < 1 then
+			reject(player, "muzzle behind " .. blocked.Instance:GetFullName())
 			return
 		end
 	end
@@ -302,6 +319,7 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 		return
 	end
 	if not takeShotCredit(state, weapon.Id, weapon.FireCooldown, now) then
+		reject(player, "faster than the fire rate of " .. weapon.Id)
 		return
 	end
 	state.Ammo[weapon.Id] -= 1
@@ -440,6 +458,7 @@ function CombatService.Init()
 			cancelReload(state)
 		end
 		states[player] = nil
+		lastRejectWarn[player] = nil
 	end)
 	for _, player in Players:GetPlayers() do
 		getState(player)
