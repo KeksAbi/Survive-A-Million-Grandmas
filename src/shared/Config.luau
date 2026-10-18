@@ -68,6 +68,9 @@ return {
 		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
 		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.
 		HitTolerance = 1.5,
+		-- "Favor the shooter": when the client's crosshair was on an enemy, the server accepts that hit if the
+		-- shot points at the enemy within this many studs and nothing on the map blocks the line of sight.
+		ClaimTolerance = 3,
 		-- Hit checks start this far BEHIND the muzzle (inside the shooter, which bullets ignore). Point-blank
 		-- enemies overlap the gun tip, and a ray that starts inside a part never hits that part.
 		RayBackOffset = 4,

@@ -2,7 +2,8 @@
 -- All RemoteEvents live in ReplicatedStorage.Remotes. The server creates them (Init), both sides fetch them (Get).
 --
 -- Client -> Server (never trusted, always validated):
---   Fire(origin: Vector3, direction: Vector3)   shoot the equipped weapon
+--   Fire(origin: Vector3, direction: Vector3, aimedEnemyId: number?)   shoot; the id = enemy under the
+--       crosshair on the client (only a hint: the server re-checks direction, range and line of sight)
 --   Reload()                                    start a reload
 --   Equip(weaponId: string)                     switch weapon
 --   Purchase(itemId: string)                    buy a weapon id or "Grenade"

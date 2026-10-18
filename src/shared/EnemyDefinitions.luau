@@ -17,7 +17,8 @@ export type EnemyDefinition = {
 	RootHeight: number, -- height of the root part center above the ground
 	Radius: number, -- body radius: spacing between enemies, obstacle avoidance, hit tolerance
 	Scale: number?, -- model size multiplier (default 1)
-	HitboxSize: Vector3?, -- default 2.8 x 6.6 x 2.4, multiplied by Scale
+	HitboxSize: Vector3?, -- default 3.6 x 7.2 x 3.8 (covers arms and bun), multiplied by Scale
+	HitboxOffset: Vector3?, -- hitbox center relative to the root, default (0, 0.5, -0.5) (arms reach forward)
 	-- Ranged
 	PreferredRange: number?,
 	MinRange: number?,
@@ -70,7 +71,8 @@ local Definitions: { [string]: EnemyDefinition } = {
 		CashReward = 20,
 		RootHeight = 3,
 		Radius = 1.6,
-		HitboxSize = Vector3.new(3.2, 6.6, 4.6),
+		HitboxSize = Vector3.new(3.4, 7.2, 6.4), -- scooter + basket in front
+		HitboxOffset = Vector3.new(0, 0.5, -0.8),
 	},
 	MegaGrandma = {
 		Name = "MEGA GRANDMA",

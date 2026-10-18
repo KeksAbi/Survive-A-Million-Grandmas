@@ -30,6 +30,8 @@ local triggerHeld = false
 local nextFire = 0
 local aimParams = RaycastParams.new()
 aimParams.FilterType = Enum.RaycastFilterType.Exclude
+local shotParams = RaycastParams.new() -- same filter as the server's bullet rays
+shotParams.FilterType = Enum.RaycastFilterType.Include
 
 local function getHumanoid(): Humanoid?
 	local character = player.Character
@@ -68,7 +70,7 @@ local function isTouchAiming(): boolean
 end
 
 -- Touch aim assist: the enemy closest to the aim direction (flat angle) within the assist cone.
-local function findAssistTarget(origin: Vector3, direction: Vector3): Vector3?
+local function findAssistTarget(origin: Vector3, direction: Vector3): (Vector3?, number?)
 	local enemies = workspace:FindFirstChild("Enemies")
 	if not enemies then
 		return nil
@@ -78,7 +80,7 @@ local function findAssistTarget(origin: Vector3, direction: Vector3): Vector3?
 		return nil
 	end
 	flatDir = flatDir.Unit
-	local best, bestAngle = nil, math.rad(Config.Mobile.AimAssistDegrees)
+	local best, bestId, bestAngle = nil, nil, math.rad(Config.Mobile.AimAssistDegrees)
 	for _, model in enemies:GetChildren() do
 		local root = model:FindFirstChild("Root")
 		if root then
@@ -87,12 +89,12 @@ local function findAssistTarget(origin: Vector3, direction: Vector3): Vector3?
 			if flat.Magnitude > 0.5 and flat.Magnitude <= Config.Mobile.AimAssistRange then
 				local angle = math.acos(math.clamp(flatDir:Dot(flat.Unit), -1, 1))
 				if angle < bestAngle then
-					best, bestAngle = root.Position, angle
+					best, bestId, bestAngle = root.Position, model:GetAttribute("EnemyId"), angle
 				end
 			end
 		end
 	end
-	return best
+	return best, bestId
 end
 
 -- Screen point to aim through: the center in first person and on touch devices, otherwise the mouse cursor.
@@ -109,24 +111,28 @@ end
 --   hits an enemy  -> aim exactly at that point;
 --   hits anything else (ground, props) -> aim at that spot raised to `muzzleHeight`, so the bullet flies
 --   level toward the cursor and keeps going instead of diving into the ground.
-local function getAimPoint(muzzleHeight: number): Vector3
+local function getAimPoint(muzzleHeight: number): (Vector3, number?)
 	aimParams.FilterDescendantsInstances = { player.Character, Effects.Folder }
 	local screenPoint = getAimScreenPoint()
 	local ray = camera:ViewportPointToRay(screenPoint.X, screenPoint.Y)
 	local result = workspace:Raycast(ray.Origin, ray.Direction * 500, aimParams)
+	-- enemy under the crosshair (sent to the server as a hint for "favor the shooter")
+	local enemyId: number? = nil
+	local enemies = workspace:FindFirstChild("Enemies")
+	if result and enemies and result.Instance:IsDescendantOf(enemies) then
+		local model = result.Instance:FindFirstAncestorOfClass("Model")
+		enemyId = model and model:GetAttribute("EnemyId")
+		return result.Position, enemyId
+	end
 	if isFirstPerson() then
-		return if result then result.Position else ray.Origin + ray.Direction * 500
+		return (if result then result.Position else ray.Origin + ray.Direction * 500), nil
 	end
 	if result then
-		local enemies = workspace:FindFirstChild("Enemies")
-		if enemies and result.Instance:IsDescendantOf(enemies) then
-			return result.Position
-		end
-		return Vector3.new(result.Position.X, muzzleHeight, result.Position.Z)
+		return Vector3.new(result.Position.X, muzzleHeight, result.Position.Z), nil
 	end
 	-- cursor in the sky: intersect the ray with the horizontal plane at muzzle height
 	local t = if math.abs(ray.Direction.Y) > 0.001 then (muzzleHeight - ray.Origin.Y) / ray.Direction.Y else 100
-	return ray.Origin + ray.Direction * math.max(t, 1)
+	return ray.Origin + ray.Direction * math.max(t, 1), nil
 end
 
 local function spreadDirection(direction: Vector3, degrees: number): Vector3
@@ -158,7 +164,7 @@ local function tryFire()
 	if not origin then
 		return
 	end
-	local aimPoint = getAimPoint(origin.Y)
+	local aimPoint, aimedEnemyId = getAimPoint(origin.Y)
 	-- Aim from the gun tip, so the bullet line goes exactly through the crosshair point. Only when the
 	-- target is so close that the crosshair point is at or behind the gun tip (point-blank), aim from the
 	-- head instead, otherwise the shot would turn around.
@@ -170,7 +176,7 @@ local function tryFire()
 			aimFrom = head.Position
 		end
 	end
-	local level = aimPoint.Y == origin.Y and not isFirstPerson() -- cursor on the ground: a flat shot
+	local level = aimedEnemyId == nil and aimPoint.Y == origin.Y and not isFirstPerson() -- cursor on the ground: a flat shot
 	local direction = aimPoint - aimFrom
 	if level then
 		direction = Vector3.new(direction.X, 0, direction.Z)
@@ -181,25 +187,41 @@ local function tryFire()
 	end
 	direction = direction.Unit
 	if isTouchAiming() then
-		local assisted = findAssistTarget(origin, direction)
+		local assisted, assistedId = findAssistTarget(origin, direction)
 		if assisted then
 			aimPoint = assisted
-			level = false
+			aimedEnemyId = assistedId
 			direction = (assisted - aimFrom).Unit
 		end
 	end
-	fireRemote:FireServer(origin, direction)
+	fireRemote:FireServer(origin, direction, aimedEnemyId)
 
 	-- instant local feedback (cosmetic; the server decides real hits)
 	Effects.MuzzleFlash(origin)
 	Effects.PlaySound("Fire_" .. weapon.Id, origin)
-	local distance = weapon.Range -- level shots keep flying past the cursor
-	if not level then
-		distance = math.min((aimPoint - origin).Magnitude, weapon.Range) -- aimed at an enemy: stop there
+	-- tracers end where the bullet really stops: the same ray the server casts (enemies + map, starting
+	-- behind the muzzle), so they never fly through trees, benches or the fountain
+	local include = {}
+	for _, name in { "Enemies", "Map" } do
+		local folder = workspace:FindFirstChild(name)
+		if folder then
+			table.insert(include, folder)
+		end
 	end
-	for _ = 1, weapon.Pellets do
+	shotParams.FilterDescendantsInstances = include
+	local backOffset = Config.Combat.RayBackOffset
+	for pellet = 1, weapon.Pellets do
 		local dir = if weapon.Pellets > 1 then spreadDirection(direction, weapon.SpreadDegrees) else direction
-		Effects.Trail(origin, origin + dir * distance)
+		local hit = workspace:Raycast(origin - dir * backOffset, dir * (weapon.Range + backOffset), shotParams)
+		local endPosition = if hit then hit.Position else origin + dir * weapon.Range
+		if pellet == 1 and aimedEnemyId and (aimPoint - origin).Magnitude < (endPosition - origin).Magnitude then
+			endPosition = aimPoint -- crosshair was on a grandma: the server counts it, so the tracer stops there
+		end
+		Effects.Trail(origin, endPosition)
+		local enemiesFolder = workspace:FindFirstChild("Enemies")
+		if hit and not (enemiesFolder and hit.Instance:IsDescendantOf(enemiesFolder)) then
+			Effects.HitSpark(endPosition) -- bullet hit the map
+		end
 	end
 end
 

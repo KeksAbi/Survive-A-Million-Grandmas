@@ -230,7 +230,45 @@ local function spreadDirection(direction: Vector3, degrees: number): Vector3
 	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(0, 0, roll) * CFrame.Angles(angle, 0, 0)).LookVector
 end
 
-local function onFire(player: Player, origin: any, direction: any)
+local mapParams = RaycastParams.new()
+mapParams.FilterType = Enum.RaycastFilterType.Include
+
+-- "Favor the shooter": the client says which enemy was under its crosshair. Accept it only if that enemy
+-- is alive, in range, in front, close to the shot line (ClaimTolerance) and not hidden behind the map.
+local function validateClaim(enemyId: number, eye: Vector3, origin: Vector3, aim: Vector3, range: number): (boolean, Vector3?)
+	local enemy = EnemyService.Get(enemyId)
+	if not enemy or not enemy.Alive then
+		return false, nil
+	end
+	local def = enemy.Def
+	local center = enemy.Position + Vector3.new(0, def.RootHeight, 0)
+	local toEnemy = center - origin
+	if toEnemy.Magnitude > range + def.Radius + 5 then
+		return false, nil
+	end
+	local t = toEnemy:Dot(aim)
+	if t <= 0 then
+		return false, nil
+	end
+	local offset = center - (origin + aim * t)
+	local flat = math.sqrt(offset.X * offset.X + offset.Z * offset.Z)
+	local tolerance = Config.Combat.ClaimTolerance
+	if flat > def.Radius + tolerance or math.abs(offset.Y) > def.RootHeight * 1.25 + tolerance then
+		return false, nil
+	end
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		mapParams.FilterDescendantsInstances = { map }
+		local toCenter = center - eye
+		local blocked = workspace:Raycast(eye, toCenter, mapParams)
+		if blocked and blocked.Distance < toCenter.Magnitude - (def.Radius + 1) then
+			return false, nil
+		end
+	end
+	return true, origin + aim * t
+end
+
+local function onFire(player: Player, origin: any, direction: any, aimedEnemyId: any)
 	local state = states[player]
 	if not state or typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
 		return
@@ -285,6 +323,15 @@ local function onFire(player: Player, origin: any, direction: any)
 		if enemyId then
 			damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage
 			hitPosition[enemyId] = position
+		end
+	end
+
+	-- the enemy under the client's crosshair gets at least one pellet if the claim checks out
+	if typeof(aimedEnemyId) == "number" and not damageByEnemy[aimedEnemyId] then
+		local valid, position = validateClaim(aimedEnemyId, head.Position, origin, aim, weapon.Range)
+		if valid then
+			damageByEnemy[aimedEnemyId] = weapon.Damage
+			hitPosition[aimedEnemyId] = position
 		end
 	end
 

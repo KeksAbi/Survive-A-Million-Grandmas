@@ -178,14 +178,14 @@ function EnemyFactory.Build(typeName: string, def): (Model, BasePart)
 	local scale = def.Scale or 1
 	local hitbox = Instance.new("Part")
 	hitbox.Name = "Hitbox"
-	hitbox.Size = (def.HitboxSize or Vector3.new(2.8, 6.6, 2.4)) * scale
+	hitbox.Size = (def.HitboxSize or Vector3.new(3.6, 7.2, 3.8)) * scale
 	hitbox.Transparency = if Config.Debug.ShowHitboxes then 0.75 else 1
 	hitbox.Color = Color3.fromRGB(255, 0, 0)
 	hitbox.CanCollide = false
 	hitbox.CanTouch = false
 	hitbox.CanQuery = true
 	hitbox.Massless = true
-	local hitboxOffset = CFrame.new(0, 0.3 * scale, 0)
+	local hitboxOffset = CFrame.new((def.HitboxOffset or Vector3.new(0, 0.5, -0.5)) * scale)
 	hitbox.CFrame = root.CFrame * hitboxOffset
 	local weld = Instance.new("Weld")
 	weld.Part0 = root
