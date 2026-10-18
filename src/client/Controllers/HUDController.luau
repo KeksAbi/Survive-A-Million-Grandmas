@@ -15,6 +15,7 @@ local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
 
 local Effects = require(script.Parent.Parent.Effects)
+local GunIcon = require(script.Parent.Parent.GunIcon)
 local InputController = require(script.Parent.InputController)
 
 local player = Players.LocalPlayer
@@ -248,15 +249,16 @@ local function buildBottom(root: Frame, ammoRoot: Frame)
 		slotStroke.Parent = slot
 		label({ Text = tostring(index), Size = UDim2.fromOffset(18, 18), Position = UDim2.fromOffset(4, 2), TextColor3 = THEME.Gold, Parent = slot })
 		label({ Text = string.upper(weapon.Name), Size = UDim2.new(1, -8, 0, 16), Position = UDim2.new(0, 4, 1, -20), Parent = slot })
-		-- simple gun silhouette as the icon
-		make("Frame", {
+		-- 3D icon of the real gun (refreshed when the skin changes)
+		local icon = GunIcon.Create({
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.45),
-			Size = UDim2.fromOffset(math.clamp(weapon.Look.Size.Z * 16, 18, 44), 8),
-			BackgroundColor3 = weapon.Look.AccentColor,
-			BorderSizePixel = 0,
+			Size = UDim2.fromOffset(58, 34),
 			Parent = slot,
-		}, { corner(2) })
+		}, weaponId, player:GetAttribute("Skin"))
+		player:GetAttributeChangedSignal("Skin"):Connect(function()
+			GunIcon.Set(icon, weaponId, player:GetAttribute("Skin"))
+		end)
 		-- the whole slot is a button too (tap on mobile, click on PC) = same as pressing its number key
 		local tap = make("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 3, Parent = slot }) :: TextButton
 		tap.Activated:Connect(function()

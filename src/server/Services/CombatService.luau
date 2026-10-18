@@ -10,7 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
-local SkinData = require(Shared.SkinDefinitions)
+local GunModels = require(Shared.GunModels)
 
 local EnemyService = require(script.Parent.EnemyService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -136,44 +136,17 @@ local function buildGun(player: Player, state: State)
 		return
 	end
 
-	local look = Weapons[state.Equipped].Look
-	local skin = SkinData.Skins[tostring(player:GetAttribute("Skin") or "Default")] or SkinData.Skins.Default
-	local bodyColor = skin.BodyColor or look.BodyColor
-	local accentColor = skin.AccentColor or look.AccentColor
-	local gun = Instance.new("Model")
-	gun.Name = "Gun"
-
-	local function gunPart(name: string, size: Vector3, offset: CFrame, color: Color3): Part
-		local part = Instance.new("Part")
-		part.Name = name
-		part.Size = size
-		part.Color = color
-		part.Material = skin.Material or Enum.Material.SmoothPlastic
-		part.CanCollide = false
-		part.CanTouch = false
-		part.CanQuery = false
-		part.Massless = true
-		local weld = Instance.new("Weld")
-		weld.Part0 = hand
-		weld.Part1 = part
-		weld.C0 = handOffset * offset
-		weld.Parent = part
-		part.CFrame = hand.CFrame * weld.C0
-		part.Parent = gun
-		return part
+	-- the shared model (imported mesh gun or part-built fallback), welded part by part to the hand
+	local gun = GunModels.Build(Weapons[state.Equipped], tostring(player:GetAttribute("Skin") or "Default"), hand.CFrame * handOffset)
+	for _, part in gun:GetDescendants() do
+		if part:IsA("BasePart") then
+			local weld = Instance.new("Weld")
+			weld.Part0 = hand
+			weld.Part1 = part
+			weld.C0 = handOffset * (part:GetAttribute("Offset") or CFrame.identity)
+			weld.Parent = part
+		end
 	end
-
-	local size = look.Size
-	local handle = gunPart("Handle", size, CFrame.new(0, 0, -size.Z / 2 + 0.3), bodyColor)
-	gunPart("Accent", Vector3.new(size.X + 0.04, size.Y * 0.35, size.Z * 0.45), CFrame.new(0, -size.Y * 0.1, -size.Z / 2 + 0.3), accentColor)
-	gunPart("Grip", Vector3.new(size.X * 0.9, 0.55, 0.3), CFrame.new(0, -size.Y / 2 - 0.2, 0.1), bodyColor)
-
-	local muzzle = Instance.new("Attachment")
-	muzzle.Name = "Muzzle"
-	muzzle.Position = Vector3.new(0, size.Y * 0.2, -size.Z / 2)
-	muzzle.Parent = handle
-
-	gun.PrimaryPart = handle
 	gun.Parent = character
 end
 

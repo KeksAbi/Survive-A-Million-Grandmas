@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 local SkinData = require(Shared.SkinDefinitions)
 
 local HUDController = require(script.Parent.HUDController)
+local GunIcon = require(script.Parent.Parent.GunIcon)
 
 local player = Players.LocalPlayer
 local Monetization = Config.Monetization
@@ -187,22 +188,13 @@ local function build()
 		}, { kit.Corner(8) }) :: TextButton
 		local cellStroke = kit.Stroke(2)
 		cellStroke.Parent = cell
-		-- little gun: body + accent stripe in the skin's colors
-		local body = kit.Make("Frame", {
+		-- the assault rifle in this skin, as a 3D icon
+		GunIcon.Create({
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, 12),
-			Size = UDim2.new(1, -16, 0, 18),
-			BackgroundColor3 = skin.BodyColor or Color3.fromRGB(35, 38, 45),
+			Position = UDim2.new(0.5, 0, 0, 4),
+			Size = UDim2.new(1, -4, 0, 36),
 			Parent = cell,
-		}, { kit.Corner(4), kit.Stroke(2) })
-		kit.Make("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, -10, 0, 6),
-			BackgroundColor3 = skin.AccentColor or Color3.fromRGB(200, 170, 70),
-			BorderSizePixel = 0,
-			Parent = body,
-		})
+		}, "AssaultRifle", skinId)
 		kit.Label({ Text = skin.Name, Size = UDim2.new(1, -6, 0, 16), Position = UDim2.fromOffset(3, 40), Parent = cell })
 		local lock = kit.Label({
 			Text = if skin.Requires == "VIP" then "VIP" else "PACK",

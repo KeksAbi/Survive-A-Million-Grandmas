@@ -15,7 +15,7 @@ MVP only: no pets, rebirths, crafting, trading, multiple worlds or deep progress
 ## Code layout (Rojo, `default.project.json`)
 | Folder | Becomes in Studio | Contents |
 |---|---|---|
-| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `WaveDefinitions`, `SkinDefinitions`, `Remotes`, `Signal` |
+| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `WaveDefinitions`, `SkinDefinitions`, `GunModels`, `Remotes`, `Signal` |
 | `src/server` | `ServerScriptService.Server` | `Main.server.luau` (bootstrap), `Services/*`, `World/*` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` | `Main.client.luau`, `Effects`, `Controllers/*` |
 
@@ -56,6 +56,12 @@ out of the ground, lightning, title slam; server freezes enemies + shields playe
 touch: passes + gun skins; REVIVE button while dead), `AtmosphereController` (dark red
 dusk from the boss cutscene until that wave ends, `Config.Boss.WaveLighting`), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
+
+Gun models (`shared/GunModels`): detailed mesh guns imported in Studio go in `ReplicatedStorage.WeaponModels`
+(not synced by Rojo; saved in the place file), one Model per weapon id with parts named `*Grip*` and `*Barrel*`;
+grip point, barrel direction, muzzle, scale (`TARGET_LENGTH`) and skin tint (`*_Body`/`*_Accent`) are computed.
+Missing -> part-built fallback guns. The held gun (CombatService) and the 3D icons (`client/GunIcon`, shop,
+hotbar, store) use the same model. Claude Design prompts: `docs/weapon-prompts.md`.
 
 ## Rojo workflow
 `rojo serve` in the repo root, then connect from the Rojo plugin in Studio. Code is edited on disk only;

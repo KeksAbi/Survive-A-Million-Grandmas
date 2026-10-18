@@ -12,6 +12,7 @@ local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
 
 local HUDController = require(script.Parent.HUDController)
+local GunIcon = require(script.Parent.Parent.GunIcon)
 
 local player = Players.LocalPlayer
 
@@ -50,15 +51,13 @@ local function buildShop()
 		rowStroke.Parent = button
 
 		kit.Label({ Text = tostring(index), TextColor3 = theme.Gold, Size = UDim2.fromOffset(18, 20), Position = UDim2.fromOffset(6, 4), Parent = button })
-		-- gun silhouette icon
-		kit.Make("Frame", {
+		-- 3D icon of the real gun, in the player's current skin
+		local icon = GunIcon.Create({
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 28, 0.5, 0),
-			Size = UDim2.fromOffset(math.clamp(weapon.Look.Size.Z * 18, 22, 46), 12),
-			BackgroundColor3 = weapon.Look.AccentColor,
-			BorderSizePixel = 0,
+			Position = UDim2.new(0, 22, 0.5, 0),
+			Size = UDim2.fromOffset(60, 44),
 			Parent = button,
-		}, { kit.Corner(3), kit.Stroke(2) })
+		}, weaponId, player:GetAttribute("Skin"))
 		local name = kit.Label({ Text = string.upper(weapon.Name), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -90, 0, 24), Position = UDim2.fromOffset(84, 6), Parent = button })
 		local price = kit.Label({ Text = "", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -90, 0, 24), Position = UDim2.fromOffset(84, 32), Parent = button })
 
@@ -69,7 +68,7 @@ local function buildShop()
 				Remotes.Get("Purchase"):FireServer(weaponId)
 			end
 		end)
-		rows[weaponId] = { Button = button, Stroke = rowStroke, Price = price, Name = name }
+		rows[weaponId] = { Button = button, Stroke = rowStroke, Price = price, Name = name, Icon = icon }
 	end
 end
 
@@ -144,6 +143,10 @@ function ShopController.Init()
 	player.AttributeChanged:Connect(function(name)
 		if name == "Cash" or name == "Weapon" or name == "Grenades" or string.sub(name, 1, 4) == "Owns" then
 			refresh()
+		elseif name == "Skin" then
+			for weaponId, row in rows do
+				GunIcon.Set(row.Icon, weaponId, player:GetAttribute("Skin"))
+			end
 		end
 	end)
 	refresh()
