@@ -3,6 +3,10 @@
 -- EnemyService moves only the Root; the welds carry every other part along.
 -- Only the invisible "Hitbox" part is queryable, so bullet raycasts stay cheap and hits are forgiving.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+
 local EnemyFactory = {}
 
 local SKIN = Color3.fromRGB(247, 190, 132)
@@ -175,7 +179,8 @@ function EnemyFactory.Build(typeName: string, def): (Model, BasePart)
 	local hitbox = Instance.new("Part")
 	hitbox.Name = "Hitbox"
 	hitbox.Size = (def.HitboxSize or Vector3.new(2.8, 6.6, 2.4)) * scale
-	hitbox.Transparency = 1
+	hitbox.Transparency = if Config.Debug.ShowHitboxes then 0.75 else 1
+	hitbox.Color = Color3.fromRGB(255, 0, 0)
 	hitbox.CanCollide = false
 	hitbox.CanTouch = false
 	hitbox.CanQuery = true

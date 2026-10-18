@@ -159,10 +159,17 @@ local function tryFire()
 		return
 	end
 	local aimPoint = getAimPoint(origin.Y)
-	-- direction from the head (not the gun tip): the gun tip can be past an enemy that is touching you,
-	-- which would turn the shot around
+	-- Aim from the gun tip, so the bullet line goes exactly through the crosshair point. Only when the
+	-- target is so close that the crosshair point is at or behind the gun tip (point-blank), aim from the
+	-- head instead, otherwise the shot would turn around.
 	local head = player.Character and player.Character:FindFirstChild("Head")
-	local aimFrom = if head then head.Position else origin
+	local aimFrom = origin
+	if head then
+		local fromHead = aimPoint - head.Position
+		if (aimPoint - origin).Magnitude < 3 or (aimPoint - origin):Dot(fromHead) <= 0 then
+			aimFrom = head.Position
+		end
+	end
 	local level = aimPoint.Y == origin.Y and not isFirstPerson() -- cursor on the ground: a flat shot
 	local direction = aimPoint - aimFrom
 	if level then

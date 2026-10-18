@@ -5,6 +5,8 @@ return {
 	Debug = {
 		-- true = everyone owns all weapons from the start (testing only; the shop sells them normally).
 		GiveAllWeapons = false,
+		-- true = enemy hit areas are drawn as see-through red boxes (to check what counts as a hit).
+		ShowHitboxes = false,
 	},
 
 	Camera = {
@@ -65,7 +67,7 @@ return {
 		MaxRemotesPerSecond = 40, -- per player, all combat remotes together
 		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
 		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.
-		HitTolerance = 1.2,
+		HitTolerance = 1.5,
 		-- Hit checks start this far BEHIND the muzzle (inside the shooter, which bullets ignore). Point-blank
 		-- enemies overlap the gun tip, and a ray that starts inside a part never hits that part.
 		RayBackOffset = 4,
