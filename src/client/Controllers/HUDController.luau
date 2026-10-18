@@ -3,7 +3,7 @@
 --   player: Cash, Weapon, Ammo, MagSize, Reloading, Owns<WeaponId>
 --   workspace: Wave, WaveKills, WaveTotal (set by WaveService; absent = test arena)
 -- Layout: wave banner top center, crosshair center, health / cash / weapon slots bottom center,
--- ammo bottom right. All sizes are pixel offsets scaled by one UIScale, so it fits phone to PC.
+-- ammo bottom right. Each corner group has its own UIScale (max 1.0), so nothing is pushed off screen.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -144,7 +144,7 @@ local function buildWaveBanner(root: Frame)
 	local banner = make("Frame", {
 		Name = "WaveBanner",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 14),
+		Position = UDim2.new(0.5, 0, 0, 0),
 		Size = UDim2.fromOffset(300, 58),
 		BackgroundColor3 = THEME.Green,
 		Parent = root,
@@ -155,7 +155,7 @@ local function buildWaveBanner(root: Frame)
 	local progress = make("Frame", {
 		Name = "WaveProgress",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 78),
+		Position = UDim2.new(0.5, 0, 0, 66),
 		Size = UDim2.fromOffset(330, 34),
 		BackgroundColor3 = THEME.Dark,
 		Visible = false,
@@ -166,12 +166,12 @@ local function buildWaveBanner(root: Frame)
 	ui.WaveProgress = progress
 end
 
-local function buildBottom(root: Frame)
+local function buildBottom(root: Frame, ammoRoot: Frame)
 	-- health bar
 	local health = make("Frame", {
 		Name = "Health",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -146),
+		Position = UDim2.new(0.5, 0, 0, 24),
 		Size = UDim2.fromOffset(300, 24),
 		BackgroundColor3 = THEME.Dark,
 		Parent = root,
@@ -188,7 +188,7 @@ local function buildBottom(root: Frame)
 	local cash = make("Frame", {
 		Name = "Cash",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -82),
+		Position = UDim2.new(0.5, 0, 0, 88),
 		Size = UDim2.fromOffset(190, 54),
 		BackgroundColor3 = THEME.Dark,
 		Parent = root,
@@ -200,7 +200,7 @@ local function buildBottom(root: Frame)
 	local slots = make("Frame", {
 		Name = "Slots",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -12),
+		Position = UDim2.new(0.5, 0, 1, 0),
 		Size = UDim2.fromOffset(3 * 64 + 2 * 8, 64),
 		BackgroundTransparency = 1,
 		Parent = root,
@@ -237,11 +237,11 @@ local function buildBottom(root: Frame)
 	local ammo = make("Frame", {
 		Name = "Ammo",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -20, 1, -20),
+		Position = UDim2.fromScale(1, 1),
 		Size = UDim2.fromOffset(170, 76),
 		BackgroundColor3 = THEME.Dark,
 		BackgroundTransparency = 0.15,
-		Parent = root,
+		Parent = ammoRoot,
 	}, { corner(10), stroke(2) })
 	ui.WeaponName = label({ Text = "PISTOL", Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(8, 6), TextXAlignment = Enum.TextXAlignment.Right, Parent = ammo })
 	ui.AmmoLabel = label({ Text = "12 / 12", Size = UDim2.new(1, -16, 0, 38), Position = UDim2.fromOffset(8, 30), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = THEME.Gold, Parent = ammo })
@@ -252,7 +252,7 @@ local function buildNotification(root: Frame)
 		Name = "Notification",
 		Text = "",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, 160),
+		Position = UDim2.new(0.5, 0, 0, 140),
 		Size = UDim2.fromOffset(600, 56),
 		TextTransparency = 1,
 		Parent = root,
@@ -326,13 +326,13 @@ local function cashPopup(delta: number)
 	local popup = label({
 		Text = "+$" .. tostring(delta),
 		TextColor3 = THEME.Gold,
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 70, 1, -110),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(1, 8, 0.5, 0),
 		Size = UDim2.fromOffset(110, 34),
-		Parent = ui.Root,
+		Parent = ui.CashFrame,
 	})
 	TweenService:Create(popup, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, 70, 1, -170),
+		Position = UDim2.new(1, 8, 0.5, -60),
 		TextTransparency = 1,
 	}):Play()
 	TweenService:Create(popup:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.8), { Transparency = 1 }):Play()
@@ -383,19 +383,38 @@ function HUDController.Init()
 	local root = make("Frame", { Name = "Root", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
 	ui.Root = root
 
-	-- one scale for every element: 1.0 at 900 px screen height
-	local scale = make("UIScale", { Parent = root }) :: UIScale
+	-- one container per screen edge, each with its own UIScale (scaled around its AnchorPoint)
+	local scales = {}
+	local function container(name: string, anchor: Vector2, position: UDim2, size: Vector2): Frame
+		local frame = make("Frame", {
+			Name = name,
+			AnchorPoint = anchor,
+			Position = position,
+			Size = UDim2.fromOffset(size.X, size.Y),
+			BackgroundTransparency = 1,
+			Parent = root,
+		}) :: Frame
+		table.insert(scales, make("UIScale", { Parent = frame }))
+		return frame
+	end
+	local top = container("Top", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 12), Vector2.new(600, 200))
+	local bottom = container("Bottom", Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -12), Vector2.new(320, 160))
+	local ammoRoot = container("AmmoCorner", Vector2.new(1, 1), UDim2.new(1, -16, 1, -16), Vector2.new(170, 76))
+
 	local camera = workspace.CurrentCamera
 	local function rescale()
-		scale.Scale = math.clamp(camera.ViewportSize.Y / 900, 0.6, 1.3)
+		local s = math.clamp(math.min(camera.ViewportSize.Y / 1000, camera.ViewportSize.X / 1500), 0.55, 1)
+		for _, uiScale in scales do
+			uiScale.Scale = s
+		end
 	end
 	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 	rescale()
 
 	buildCrosshair(root)
-	buildWaveBanner(root)
-	buildBottom(root)
-	buildNotification(root)
+	buildWaveBanner(top)
+	buildBottom(bottom, ammoRoot)
+	buildNotification(top)
 
 	lastCash = player:GetAttribute("Cash") or 0
 	player:GetAttributeChangedSignal("Cash"):Connect(function()

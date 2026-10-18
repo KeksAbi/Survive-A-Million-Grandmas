@@ -125,6 +125,28 @@ function EnemyService.GetEnemyIdFromInstance(instance: Instance): number?
 	return nil
 end
 
+-- Closest enemy whose body (an upright box around the root) passes within `tolerance` studs of the ray.
+-- Returns (enemyId, point on the ray) or nil. Linear over alive enemies (max 60).
+function EnemyService.FindEnemyNearRay(origin: Vector3, direction: Vector3, maxDistance: number, tolerance: number): (number?, Vector3?)
+	local bestId, bestT, bestPoint = nil, math.huge, nil
+	for id, enemy in enemies do
+		if enemy.Alive then
+			local center = enemy.Position + Vector3.new(0, enemy.Def.RootHeight, 0)
+			local t = math.clamp((center - origin):Dot(direction), 0, maxDistance)
+			if t < bestT then
+				local point = origin + direction * t
+				local offset = center - point
+				local flat = math.sqrt(offset.X * offset.X + offset.Z * offset.Z)
+				local halfHeight = enemy.Def.RootHeight + 0.4
+				if flat <= 1.4 + tolerance and math.abs(offset.Y) <= halfHeight + tolerance then
+					bestId, bestT, bestPoint = id, t, point
+				end
+			end
+		end
+	end
+	return bestId, bestPoint
+end
+
 function EnemyService.GetActiveCount(): number
 	return activeCount
 end

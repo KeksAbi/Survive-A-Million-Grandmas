@@ -7,6 +7,8 @@ return {
 		-- WaveService turns this off by setting workspace attribute "WavesActive" = true.
 		DevSpawner = true,
 		DevSpawnInterval = 1.5,
+		-- Everyone owns all weapons, so they can be tested before the shop exists (Phase 4 sets this false).
+		GiveAllWeapons = true,
 	},
 
 	Player = {
@@ -29,6 +31,9 @@ return {
 		MaxRange = 300,
 		FireToleranceSeconds = 0.06, -- allowed early fire (network jitter)
 		MaxRemotesPerSecond = 40, -- per player, all combat remotes together
+		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
+		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.
+		HitTolerance = 1.2,
 	},
 
 	Map = {

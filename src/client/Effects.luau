@@ -69,7 +69,7 @@ function Effects.DeathPuff(position: Vector3)
 	end
 end
 
--- Floating "-25" above the hit point. Kills show in red and bigger.
+-- Floating "-25" above the hit point. The killing blow shows a bigger "POOF!".
 function Effects.DamageNumber(position: Vector3, amount: number, killed: boolean)
 	local anchor = fxPart(Vector3.new(0.1, 0.1, 0.1), CFrame.new(position + Vector3.new(math.random() - 0.5, 1, math.random() - 0.5)), Color3.new(1, 1, 1))
 	anchor.Transparency = 1
@@ -84,9 +84,10 @@ function Effects.DamageNumber(position: Vector3, amount: number, killed: boolean
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBlack
-	label.Text = "-" .. tostring(amount)
+	-- killing blow: "POOF!" in pink instead of a number, so it isn't mistaken for a critical hit
+	label.Text = if killed then "POOF!" else "-" .. tostring(amount)
 	label.TextScaled = true
-	label.TextColor3 = if killed then Color3.fromRGB(255, 70, 70) else Color3.fromRGB(255, 235, 90)
+	label.TextColor3 = if killed then Color3.fromRGB(255, 120, 200) else Color3.fromRGB(255, 235, 90)
 	label.TextStrokeTransparency = 0
 	label.Parent = gui
 	if killed then

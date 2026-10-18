@@ -163,8 +163,14 @@ function GunController.Init()
 	end)
 	InputController.SlotPressed:Connect(function(slot: number)
 		local weaponId = WeaponData.Order[slot]
-		if weaponId and player:GetAttribute("Owns" .. weaponId) and player:GetAttribute("Weapon") ~= weaponId then
+		if not weaponId or player:GetAttribute("Weapon") == weaponId then
+			return
+		end
+		if player:GetAttribute("Owns" .. weaponId) then
 			equipRemote:FireServer(weaponId)
+		else
+			local weapon = WeaponData.Weapons[weaponId]
+			HUDController.Notify(string.upper(weapon.Name) .. " COSTS $" .. tostring(weapon.Cost), "bad")
 		end
 	end)
 

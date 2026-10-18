@@ -49,8 +49,14 @@ local function newState(): State
 	for id, weapon in Weapons do
 		ammo[id] = weapon.MagSize
 	end
+	local owned = { [Config.Player.StartingWeapon] = true }
+	if Config.Debug.GiveAllWeapons then
+		for id in Weapons do
+			owned[id] = true
+		end
+	end
 	return {
-		Owned = { [Config.Player.StartingWeapon] = true },
+		Owned = owned,
 		Equipped = Config.Player.StartingWeapon,
 		Ammo = ammo,
 		NextFire = 0,
@@ -107,10 +113,18 @@ local function buildGun(player: Player, state: State)
 		old:Destroy()
 	end
 
+	-- R15: raise the right arm forward (shoulder joint turned 90 degrees) and hold the gun along the arm,
+	-- so the muzzle sits in front of the shoulder, close to the camera's line of sight.
 	local hand = character:FindFirstChild("RightHand")
-	local handOffset = CFrame.new(0, -0.15, -0.45)
+	local handOffset = CFrame.new(0, -0.25, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+	local upperArm = character:FindFirstChild("RightUpperArm")
+	local shoulder = upperArm and upperArm:FindFirstChild("RightShoulder")
+	if shoulder and shoulder:IsA("Motor6D") and not shoulder:GetAttribute("Raised") then
+		shoulder.C0 = shoulder.C0 * CFrame.Angles(math.rad(90), 0, 0)
+		shoulder:SetAttribute("Raised", true)
+	end
 	if not hand then
-		hand = character:FindFirstChild("Right Arm") -- R6 fallback
+		hand = character:FindFirstChild("Right Arm") -- R6 fallback: gun at the hip
 		handOffset = CFrame.new(0, -1.05, -0.45)
 	end
 	if not hand then
@@ -239,12 +253,16 @@ local function onFire(player: Player, origin: any, direction: any)
 		local result = workspace:Raycast(origin, dir * weapon.Range, params)
 		local endPosition = if result then result.Position else origin + dir * weapon.Range
 		firstEnd = firstEnd or endPosition
-		if result then
-			local enemyId = EnemyService.GetEnemyIdFromInstance(result.Instance)
-			if enemyId then
-				damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage
-				hitPosition[enemyId] = result.Position
-			end
+		local enemyId = if result then EnemyService.GetEnemyIdFromInstance(result.Instance) else nil
+		local position = endPosition
+		if not enemyId then
+			-- near miss: forgive small lag offsets (stops at walls/ground the ray already hit)
+			local maxDistance = if result then result.Distance else weapon.Range
+			enemyId, position = EnemyService.FindEnemyNearRay(origin, dir, maxDistance, Config.Combat.HitTolerance)
+		end
+		if enemyId then
+			damageByEnemy[enemyId] = (damageByEnemy[enemyId] or 0) + weapon.Damage
+			hitPosition[enemyId] = position
 		end
 	end
 
