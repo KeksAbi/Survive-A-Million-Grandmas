@@ -26,7 +26,7 @@ return {
 		RevivesPerWave = 1, -- revive credits usable per player per wave
 		-- When the whole team is down: grandmas freeze and a REVIVE countdown runs this long before GAME OVER
 		-- (only if the Revive product is set up or someone still has a credit).
-		LastChanceSeconds = 10,
+		LastChanceSeconds = 20,
 	},
 
 	Data = {
