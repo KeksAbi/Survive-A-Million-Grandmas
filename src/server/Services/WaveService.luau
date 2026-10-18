@@ -130,13 +130,20 @@ local function runWave(waveIndex: number): string
 		local now = os.clock()
 		if nextIndex <= #queue and now >= nextSpawnAt then
 			local entry = queue[nextIndex]
-			local enemy = EnemyService.Spawn(entry.Type, MapBuilder.GetRandomSpawnPosition(), if entry.Boss then bossScale else healthScale)
+			local spawnAt = if entry.Boss then Config.Boss.SpawnPosition else MapBuilder.GetRandomSpawnPosition()
+			local enemy = EnemyService.Spawn(entry.Type, spawnAt, if entry.Boss then bossScale else healthScale)
 			if enemy then
 				nextIndex += 1
 				nextSpawnAt = now + interval
 				if entry.Boss then
+					-- intro cutscene on every screen: the world freezes and players are shielded meanwhile
+					local seconds = Config.Boss.CutsceneSeconds
 					EnemyService.MarkBoss(enemy)
-					notifyAll("MEGA GRANDMA INCOMING!", "boss")
+					EnemyService.Freeze(seconds)
+					PlayerService.ShieldAll(seconds + 1)
+					Remotes.Get("WorldFx"):FireAllClients("BossIntro", enemy.Id, seconds)
+					nextSpawnAt = now + seconds
+					task.delay(seconds, notifyAll, "DEFEAT THE MEGA GRANDMA!", "boss")
 				end
 			else
 				nextSpawnAt = now + 0.5 -- MaxActive reached: try again shortly

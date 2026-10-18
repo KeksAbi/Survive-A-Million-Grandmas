@@ -322,6 +322,12 @@ local function stomp(enemy: Enemy)
 	end)
 end
 
+-- Cutscenes: while frozen, no enemy moves or attacks (and nothing writes their CFrames).
+local frozenUntil = 0
+function EnemyService.Freeze(seconds: number)
+	frozenUntil = math.max(frozenUntil, os.clock() + seconds)
+end
+
 local accumulator = 0
 
 local function step(dt: number)
@@ -332,7 +338,7 @@ local function step(dt: number)
 	local stepDt = math.min(accumulator, 0.25)
 	accumulator = 0
 
-	if activeCount == 0 then
+	if activeCount == 0 or os.clock() < frozenUntil then
 		return
 	end
 	local living = PlayerService.GetLivingPlayers()

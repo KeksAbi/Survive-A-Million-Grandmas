@@ -15,6 +15,11 @@ return {
 		MaxZoom = 50,
 	},
 
+	Boss = {
+		CutsceneSeconds = 7, -- enemies frozen + players shielded while the intro cutscene plays
+		SpawnPosition = Vector3.new(0, 0, -118), -- rises out of the ground in front of the retirement home
+	},
+
 	Mobile = {
 		-- Touch devices aim through the screen center; shots bend toward an enemy within this cone.
 		AimAssistDegrees = 12,
@@ -91,6 +96,9 @@ return {
 		WaveStart = "", -- notification kind "info"
 		WaveComplete = "", -- "good"
 		BossIncoming = "", -- "boss"
+		BossRoar = "", -- cutscene title slam
+		Thunder = "", -- cutscene lightning
+		Rumble = "", -- cutscene: boss rising out of the ground
 		Victory = "", -- "gold"
 		Error = "", -- "bad" (game over, not enough cash)
 		Music = "", -- looping background music

@@ -44,6 +44,8 @@ local ui: { [string]: any } = {} -- named references to live elements
 
 -- true while a screen that needs the mouse (results) is open; GunController frees the mouse then
 HUDController.ModalOpen = false
+-- true while the boss cutscene plays: HUD hidden, no aiming or shooting
+HUDController.CutsceneActive = false
 
 local rescale: () -> () -- defined with HUDController.CreateContainer
 
@@ -596,6 +598,11 @@ function HUDController.ShowResults(result)
 			HUDController.HideResults()
 		end
 	end)
+end
+
+function HUDController.SetCutscene(active: boolean)
+	HUDController.CutsceneActive = active
+	ui.Root.Visible = not active
 end
 
 -- crosshair = mouse cursor (GunController moves it every frame; nil hides it)

@@ -57,6 +57,16 @@ end
 
 local spawning: { [Player]: boolean } = {}
 
+-- Invisible damage shield for every living player (boss cutscene).
+function PlayerService.ShieldAll(seconds: number)
+	for _, entry in PlayerService.GetLivingPlayers() do
+		local shield = Instance.new("ForceField")
+		shield.Visible = false
+		shield.Parent = entry.Character
+		Debris:AddItem(shield, seconds)
+	end
+end
+
 -- Spawns (or respawns) one player. Yields until the character exists. Ignored if already spawning.
 function PlayerService.Spawn(player: Player)
 	if player.Parent ~= Players or spawning[player] then

@@ -140,7 +140,7 @@ end
 
 local function tryFire()
 	local weapon = WeaponData.Weapons[player:GetAttribute("Weapon") or ""]
-	if not weapon or not getHumanoid() or player:GetAttribute("Reloading") or HUDController.ModalOpen then
+	if not weapon or not getHumanoid() or player:GetAttribute("Reloading") or HUDController.ModalOpen or HUDController.CutsceneActive then
 		return
 	end
 	local now = os.clock()
@@ -211,6 +211,11 @@ local function aimStep()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	-- MouseBehavior is left to the camera scripts (they lock it while right-click turning the camera)
+	if HUDController.CutsceneActive then
+		UserInputService.MouseIconEnabled = false
+		triggerHeld = false
+		return
+	end
 	if not humanoid or not root or HUDController.ModalOpen then
 		UserInputService.MouseIconEnabled = true
 		HUDController.SetCrosshair(nil)
@@ -254,7 +259,7 @@ function GunController.Init()
 
 	-- G: throw a grenade at the ground point under the crosshair (server buys one if the bag is empty)
 	InputController.GrenadePressed:Connect(function()
-		if not getHumanoid() or HUDController.ModalOpen then
+		if not getHumanoid() or HUDController.ModalOpen or HUDController.CutsceneActive then
 			return
 		end
 		aimParams.FilterDescendantsInstances = { player.Character, Effects.Folder }
