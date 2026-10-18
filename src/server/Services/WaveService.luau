@@ -184,7 +184,8 @@ end
 
 -- Returns "Victory", "Defeat" or "Abandoned".
 local function runMatch(): string
-	for waveIndex = 1, #WaveDefinitions do
+	local firstWave = math.clamp(Config.Debug.StartWave or 1, 1, #WaveDefinitions)
+	for waveIndex = firstWave, #WaveDefinitions do
 		if not intermission(waveIndex) then
 			return "Abandoned"
 		end

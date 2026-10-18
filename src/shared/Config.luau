@@ -7,6 +7,8 @@ return {
 		GiveAllWeapons = false,
 		-- true = enemy hit areas are drawn as see-through red boxes (to check what counts as a hit).
 		ShowHitboxes = false,
+		-- Matches start at this wave (testing: 5 = straight to the MEGA GRANDMA). Keep 1 for real play.
+		StartWave = 1,
 	},
 
 	Camera = {
