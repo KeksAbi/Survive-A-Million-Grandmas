@@ -56,6 +56,33 @@ local function isAlive(player: Player): boolean
 end
 
 local spawning: { [Player]: boolean } = {}
+local descriptions: { [Player]: HumanoidDescription } = {}
+
+-- The player's own look on the basic body: body parts and body scales reset to the standard blocky R15,
+-- clothes, accessories, colors and face kept. nil if Roblox could not load it (then the normal avatar is used).
+local function basicDescription(player: Player): HumanoidDescription?
+	if descriptions[player] then
+		return descriptions[player]
+	end
+	local ok, description = pcall(function()
+		return Players:GetHumanoidDescriptionFromUserId(math.max(player.UserId, 1))
+	end)
+	if not ok or not description then
+		warn("[PlayerService] could not load the avatar of " .. player.Name .. ": " .. tostring(description))
+		return nil
+	end
+	for _, field in { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
+		description[field] = 0
+	end
+	description.HeightScale = 1
+	description.WidthScale = 1
+	description.DepthScale = 1
+	description.HeadScale = 1
+	description.BodyTypeScale = 0
+	description.ProportionScale = 0
+	descriptions[player] = description
+	return description
+end
 
 -- Invisible damage shield for every living player (boss cutscene).
 function PlayerService.ShieldAll(seconds: number)
@@ -73,8 +100,13 @@ function PlayerService.Spawn(player: Player)
 		return
 	end
 	spawning[player] = true
+	local description = if Config.Player.BasicBody then basicDescription(player) else nil
 	local ok, err = pcall(function()
-		player:LoadCharacter()
+		if description then
+			player:LoadCharacterWithHumanoidDescription(description:Clone())
+		else
+			player:LoadCharacter()
+		end
 	end)
 	spawning[player] = nil
 	if not ok then
@@ -124,6 +156,9 @@ end
 function PlayerService.Init()
 	Players.CharacterAutoLoads = false
 	Players.PlayerAdded:Connect(onPlayerAdded)
+	Players.PlayerRemoving:Connect(function(player)
+		descriptions[player] = nil
+	end)
 	for _, player in Players:GetPlayers() do
 		onPlayerAdded(player)
 	end

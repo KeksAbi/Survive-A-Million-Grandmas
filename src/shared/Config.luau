@@ -82,6 +82,9 @@ return {
 		WalkSpeed = 16,
 		SpawnInvulnerability = 2, -- seconds of ForceField after spawning
 		StartingWeapon = "Pistol",
+		-- true = everyone spawns with the basic blocky Roblox body at standard size (own clothes, accessories,
+		-- colors and face kept), so guns and hands fit every player. Needs R15 (Game Settings > Avatar).
+		BasicBody = true,
 	},
 
 	Waves = {
@@ -106,7 +109,7 @@ return {
 	},
 
 	Combat = {
-		HeldGunScale = 1.6, -- size of the gun in the character's hands (1 = model size; adjusted to arm length)
+		HeldGunScale = 1.25, -- size of the gun in the character's hands (1 = model size; adjusted to arm length)
 		MaxShotOriginDistance = 10, -- shot origin must be this close to the shooter's head (gun length + lag)
 		MaxRange = 300,
 		-- Fire-rate check uses a shot budget: one shot refills per FireCooldown, up to this many can be banked.
