@@ -25,8 +25,15 @@ end
 export type LivingPlayer = { Player: Player, Character: Model, Root: BasePart, Humanoid: Humanoid }
 
 local warnedR15 = false
+local allowNormalBody: { [Player]: boolean } = {} -- the blocky build failed: accept the normal character
 
 local function onCharacterAdded(player: Player, character: Model)
+	-- BasicBody: a character Roblox loaded by itself (e.g. Studio spawns you before the scripts run) is
+	-- replaced by the blocky build right away
+	if Config.Player.BasicBody and not character:GetAttribute("BlockyBody") and not allowNormalBody[player] then
+		task.defer(PlayerService.Spawn, player)
+		return
+	end
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then
 		return
@@ -143,10 +150,13 @@ local function spawnBlocky(player: Player)
 	end)
 	if not ok or not model then
 		warn("[PlayerService] could not build the blocky character for " .. player.Name .. ": " .. tostring(model))
+		allowNormalBody[player] = true
 		player:LoadCharacter()
 		return
 	end
+	allowNormalBody[player] = nil
 	model.Name = player.Name
+	model:SetAttribute("BlockyBody", true)
 	for _, child in model:GetDescendants() do
 		if child:IsA("CharacterMesh") then
 			child:Destroy() -- body packages: without them every R6 body is plain blocks
@@ -227,6 +237,7 @@ function PlayerService.Init()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(function(player)
 		descriptions[player] = nil
+		allowNormalBody[player] = nil
 	end)
 	for _, player in Players:GetPlayers() do
 		onPlayerAdded(player)
