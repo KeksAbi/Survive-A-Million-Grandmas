@@ -46,8 +46,7 @@ local function onCharacterAdded(player: Player, character: Model)
 		end)
 		if humanoid.RigType == Enum.HumanoidRigType.R15 and not warnedR15 then
 			warnedR15 = true
-			warn("[PlayerService] BasicBody: the game is on R15, so avatars are not blocky. Switch to R6: "
-				.. "File > Experience Settings > Avatar > Avatar type R6, then Save.")
+			warn("[PlayerService] BasicBody: " .. player.Name .. " spawned as R15 (the blocky R6 build failed, see above)")
 		end
 	end
 
@@ -127,15 +126,53 @@ function PlayerService.ShieldAll(seconds: number)
 end
 
 -- Spawns (or respawns) one player. Yields until the character exists. Ignored if already spawning.
+-- Where characters appear: the map's PlayerSpawn pad (a little spread out), else near the park center.
+local function spawnCFrame(): CFrame
+	local map = workspace:FindFirstChild("Map")
+	local pad = map and map:FindFirstChild("PlayerSpawn")
+	local base = if pad and pad:IsA("BasePart") then pad.CFrame else CFrame.new(0, 0.5, 26)
+	return base * CFrame.new(math.random(-40, 40) / 10, 3.5, math.random(-40, 40) / 10)
+end
+
+-- Classic blocky R6 character built from the player's look, whatever avatar type the game is set to.
+-- Falls back to the normal spawn if Roblox cannot build it.
+local function spawnBlocky(player: Player)
+	local description = basicDescription(player):Clone()
+	local ok, model = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R6)
+	end)
+	if not ok or not model then
+		warn("[PlayerService] could not build the blocky character for " .. player.Name .. ": " .. tostring(model))
+		player:LoadCharacter()
+		return
+	end
+	model.Name = player.Name
+	for _, child in model:GetDescendants() do
+		if child:IsA("CharacterMesh") then
+			child:Destroy() -- body packages: without them every R6 body is plain blocks
+		end
+	end
+	model:PivotTo(spawnCFrame())
+	local old = player.Character
+	player.Character = model
+	model.Parent = workspace
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		pcall(root.SetNetworkOwner, root, player) -- the player's own client moves it, like a normal character
+	end
+	if old and old ~= model then
+		old:Destroy()
+	end
+end
+
 function PlayerService.Spawn(player: Player)
 	if player.Parent ~= Players or spawning[player] then
 		return
 	end
 	spawning[player] = true
-	local description = if Config.Player.BasicBody then basicDescription(player) else nil
 	local ok, err = pcall(function()
-		if description then
-			player:LoadCharacterWithHumanoidDescription(description:Clone())
+		if Config.Player.BasicBody then
+			spawnBlocky(player)
 		else
 			player:LoadCharacter()
 		end

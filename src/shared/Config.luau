@@ -82,9 +82,8 @@ return {
 		WalkSpeed = 16,
 		SpawnInvulnerability = 2, -- seconds of ForceField after spawning
 		StartingWeapon = "Pistol",
-		-- true = everyone is the classic blocky Roblox character (own clothes, accessories, colors and face kept;
-		-- body packages removed), so guns fit every player. Needs avatar type R6
-		-- (File > Experience Settings > Avatar); the Output warns if the game is still on R15.
+		-- true = everyone is the classic blocky Roblox R6 character (own clothes, accessories, colors and face
+		-- kept; body packages removed), so guns fit every player. Built in code, whatever the avatar settings.
 		BasicBody = true,
 	},
 
