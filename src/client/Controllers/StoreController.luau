@@ -106,17 +106,17 @@ local function build()
 	local theme = kit.Theme
 	local width = 300
 	local panelHeight = 44 + #PASS_ORDER * 68 + 30 + 84 + 12
-	-- bottom left on PC; top left on touch screens (the thumbstick sits bottom left there)
+	-- STORE button bottom left on PC, top left on touch screens (the thumbstick sits bottom left there);
+	-- the panel opens in the middle of the screen so it never covers the weapon shop
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local container = if touch
-		then HUDController.CreateContainer("Store", Vector2.new(0, 0), UDim2.new(0, 16, 0, 70), Vector2.new(width, panelHeight + 54))
-		else HUDController.CreateContainer("Store", Vector2.new(0, 1), UDim2.new(0, 16, 1, -16), Vector2.new(width, panelHeight + 54))
+		then HUDController.CreateContainer("StoreButton", Vector2.new(0, 0), UDim2.new(0, 16, 0, 70), Vector2.new(130, 44))
+		else HUDController.CreateContainer("StoreButton", Vector2.new(0, 1), UDim2.new(0, 16, 1, -16), Vector2.new(130, 44))
+	local panelContainer = HUDController.CreateContainer("Store", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Vector2.new(width, panelHeight))
 
 	local toggle = kit.Make("TextButton", {
 		Text = "",
-		AnchorPoint = if touch then Vector2.new(0, 0) else Vector2.new(0, 1),
-		Position = if touch then UDim2.fromScale(0, 0) else UDim2.fromScale(0, 1),
-		Size = UDim2.fromOffset(130, 44),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = theme.Gold,
 		Parent = container,
 	}, { kit.Corner(10), kit.Stroke(3) }) :: TextButton
@@ -125,15 +125,23 @@ local function build()
 
 	local panel = kit.Make("Frame", {
 		Visible = false,
-		Position = if touch then UDim2.fromOffset(0, 54) else UDim2.fromOffset(0, 0),
-		Size = UDim2.fromOffset(width, panelHeight),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = theme.Dark,
 		BackgroundTransparency = 0.05,
-		Parent = container,
+		Parent = panelContainer,
 	}, { kit.Corner(12), kit.Stroke(3) }) :: Frame
 	local title = kit.Make("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = theme.Gold, Parent = panel }, { kit.Corner(12) })
 	local titleLabel = kit.Label({ Text = "STORE", TextColor3 = theme.Black, Size = UDim2.new(1, -16, 1, -8), Position = UDim2.fromOffset(8, 4), Parent = title })
 	titleLabel:FindFirstChildOfClass("UIStroke").Enabled = false
+	local close = kit.Make("TextButton", {
+		Text = "",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -6, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28),
+		BackgroundColor3 = theme.Red,
+		Parent = title,
+	}, { kit.Corner(8), kit.Stroke(2) }) :: TextButton
+	kit.Label({ Text = "X", Size = UDim2.new(1, -8, 1, -8), Position = UDim2.fromOffset(4, 4), Parent = close })
 
 	-- gamepasses
 	for index, key in PASS_ORDER do
@@ -147,7 +155,8 @@ local function build()
 		}, { kit.Corner(8) })
 		kit.Make("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = PASS_COLORS[key], BorderSizePixel = 0, Parent = row }, { kit.Corner(4) })
 		kit.Label({ Text = pass.Name, TextColor3 = PASS_COLORS[key], TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -120, 0, 26), Position = UDim2.fromOffset(16, 5), Parent = row })
-		kit.Label({ Text = pass.Description, TextColor3 = Color3.fromRGB(200, 205, 220), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -120, 0, 18), Position = UDim2.fromOffset(16, 34), Parent = row })
+		local description = kit.Label({ Text = pass.Description, TextColor3 = Color3.fromRGB(200, 205, 220), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -120, 0, 18), Position = UDim2.fromOffset(16, 34), Parent = row })
+		kit.Make("UITextSizeConstraint", { MaxTextSize = 13, Parent = description }) -- same size on every row
 		local button = kit.Make("TextButton", {
 			Text = "",
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -213,9 +222,15 @@ local function build()
 		skinCells[skinId] = { Button = cell, Stroke = cellStroke, Lock = lock }
 	end
 
+	local function setOpen(open: boolean)
+		panel.Visible = open
+		HUDController.ModalOpen = open -- free mouse, no shooting while shopping
+	end
 	toggle.Activated:Connect(function()
-		panel.Visible = not panel.Visible
-		HUDController.ModalOpen = panel.Visible -- free mouse, no shooting while shopping
+		setOpen(not panel.Visible)
+	end)
+	close.Activated:Connect(function()
+		setOpen(false)
 	end)
 end
 
