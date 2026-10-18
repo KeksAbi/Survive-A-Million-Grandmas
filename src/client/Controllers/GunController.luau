@@ -264,6 +264,22 @@ function GunController.Init()
 	end
 	RunService:BindToRenderStep("GunAim", Enum.RenderPriority.Camera.Value + 2, aimStep)
 
+	-- R6 gun pose: after the animations ran, keep their arm swing off the shoulders that point at a gun
+	-- (attribute GunPose, set by CombatService), for every player's character
+	RunService.PreSimulation:Connect(function()
+		for _, other in Players:GetPlayers() do
+			local torso = other.Character and other.Character:FindFirstChild("Torso")
+			if torso then
+				for _, name in { "Right Shoulder", "Left Shoulder" } do
+					local joint = torso:FindFirstChild(name)
+					if joint and joint:IsA("Motor6D") and joint:GetAttribute("GunPose") then
+						joint.Transform = CFrame.identity
+					end
+				end
+			end
+		end
+	end)
+
 	InputController.FireBegan:Connect(function()
 		triggerHeld = true
 		tryFire()

@@ -24,10 +24,31 @@ end
 
 export type LivingPlayer = { Player: Player, Character: Model, Root: BasePart, Humanoid: Humanoid }
 
+local warnedR15 = false
+
 local function onCharacterAdded(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then
 		return
+	end
+
+	if Config.Player.BasicBody then
+		-- classic blocky body: R6 body packages are meshes on the blocks; without them everyone is blocky
+		for _, child in character:GetChildren() do
+			if child:IsA("CharacterMesh") then
+				child:Destroy()
+			end
+		end
+		character.ChildAdded:Connect(function(child)
+			if child:IsA("CharacterMesh") then
+				task.defer(child.Destroy, child) -- the appearance can arrive a moment later
+			end
+		end)
+		if humanoid.RigType == Enum.HumanoidRigType.R15 and not warnedR15 then
+			warnedR15 = true
+			warn("[PlayerService] BasicBody: the game is on R15, so avatars are not blocky. Switch to R6: "
+				.. "File > Experience Settings > Avatar > Avatar type R6, then Save.")
+		end
 	end
 
 	humanoid.MaxHealth = Config.Player.MaxHealth
@@ -58,55 +79,37 @@ end
 local spawning: { [Player]: boolean } = {}
 local descriptions: { [Player]: HumanoidDescription } = {}
 
-local BODY_PARTS = { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" }
-local BODY_SCALES = { "HeightScale", "WidthScale", "DepthScale", "HeadScale", "BodyTypeScale", "ProportionScale" }
-
-local function fetchDescription(userId: number, label: string): HumanoidDescription?
+local function fetchDescription(player: Player): HumanoidDescription?
 	for attempt = 1, 3 do
 		local ok, result = pcall(function()
-			return Players:GetHumanoidDescriptionFromUserId(math.max(userId, 1))
+			return Players:GetHumanoidDescriptionFromUserId(math.max(player.UserId, 1))
 		end)
 		if ok and result then
 			return result
 		end
-		warn("[PlayerService] could not load the avatar of " .. label .. " (try " .. attempt .. "): " .. tostring(result))
+		warn("[PlayerService] could not load the avatar of " .. player.Name .. " (try " .. attempt .. "): " .. tostring(result))
 		task.wait(attempt)
 	end
 	return nil
 end
 
--- The shared body: body parts and proportions of Config.Player.BodyFromUserId (0 = the place owner).
-local bodyTemplate: HumanoidDescription? = nil
-local function getBodyTemplate(): HumanoidDescription?
-	if bodyTemplate then
-		return bodyTemplate
-	end
-	local userId = Config.Player.BodyFromUserId
-	if userId == 0 and game.CreatorType == Enum.CreatorType.User then
-		userId = game.CreatorId
-	end
-	if userId <= 0 then
-		return nil
-	end
-	bodyTemplate = fetchDescription(userId, "the body template (user " .. userId .. ")")
-	return bodyTemplate
-end
-
--- The player's own look (clothes, accessories, colors, face) on the shared body. If a look cannot be
--- loaded the default look is used, so nobody ever spawns with a custom body.
+-- The player's own look (clothes, accessories, colors, face) at standard proportions. If it cannot be
+-- loaded, the default look is used.
 local function basicDescription(player: Player): HumanoidDescription
 	if descriptions[player] then
 		return descriptions[player]
 	end
-	local own = fetchDescription(player.UserId, player.Name)
+	local own = fetchDescription(player)
 	local final = own or Instance.new("HumanoidDescription")
-	local template = getBodyTemplate()
-	for _, field in BODY_PARTS do
-		final[field] = if template then template[field] else 0
+	for _, field in { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
+		final[field] = 0
 	end
-	for _, field in BODY_SCALES do
-		final[field] = if template then template[field] elseif field == "BodyTypeScale" or field == "ProportionScale" then 0 else 1
-	end
+	final.HeightScale = 1
+	final.WidthScale = 1
+	final.DepthScale = 1
+	final.HeadScale = 1
+	final.BodyTypeScale = 0
+	final.ProportionScale = 0
 	if own then
 		descriptions[player] = final -- the plain fallback is not cached: the next spawn tries again
 	end

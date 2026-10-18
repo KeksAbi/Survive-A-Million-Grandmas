@@ -82,11 +82,10 @@ return {
 		WalkSpeed = 16,
 		SpawnInvulnerability = 2, -- seconds of ForceField after spawning
 		StartingWeapon = "Pistol",
-		-- true = everyone spawns with the same body (own clothes, accessories, colors and face kept), so guns and
-		-- hands fit every player. The body (parts + proportions) is copied from BodyFromUserId's avatar;
-		-- 0 = the place owner's avatar. Needs R15 (File > Experience Settings > Avatar).
+		-- true = everyone is the classic blocky Roblox character (own clothes, accessories, colors and face kept;
+		-- body packages removed), so guns fit every player. Needs avatar type R6
+		-- (File > Experience Settings > Avatar); the Output warns if the game is still on R15.
 		BasicBody = true,
-		BodyFromUserId = 0,
 	},
 
 	Waves = {

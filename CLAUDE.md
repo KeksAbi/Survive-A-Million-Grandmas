@@ -21,7 +21,7 @@ MVP only: no pets, rebirths, crafting, trading, multiple worlds or deep progress
 
 Server services (`src/server/Services`):
 - `PlayerService`: character setup, spawn shield, spawning (`CharacterAutoLoads` is off; `Config.Player.BasicBody`:
-  own look on one shared body copied from `BodyFromUserId`'s avatar, 0 = place owner, via HumanoidDescription), `RespawnAndHealAll()`,
+  classic blocky R6 for everyone: own clothes/colors/accessories, CharacterMesh packages removed; game must be R6), `RespawnAndHealAll()`,
   `GetLivingPlayers()`, signals `CharacterSpawned`, `PlayerDied`, `PlayerJoined`.
 - `EconomyService`: per-player match cash (`Reset`, `AddCash`, `TrySpend`). Replicated as player attribute `Cash`.
 - `EnemyService`: spawning, ONE central AI loop for all enemies (behaviors Melee / Ranged slipper throw /
@@ -62,7 +62,9 @@ Gun models (`shared/GunModels`): detailed mesh guns imported in Studio go in `Re
 (not synced by Rojo; saved in the place file), one Model per weapon id with parts named `*Grip*` and `*Barrel*`;
 grip point, barrel direction, muzzle, scale (`TARGET_LENGTH`) and skin tint (`*_Body`/`*_Accent`) are computed.
 Missing -> part-built fallback guns. Held gun: welded to the UpperTorso (points where the body faces,
-sized by arm length), hands placed by IKControls on the Handle attachments RightGrip/LeftGrip; no arm C0 edits.
+sized by arm length). R15: hands by IKControls on Handle attachments RightGrip/LeftGrip + bladed waist twist.
+R6 (default, blocky): shoulder joints rebuilt to point the arms at the grips; clients zero the arm animation
+on joints with attribute `GunPose` (GunController, PreSimulation).
 The held gun (CombatService) and the 3D icons (`client/GunIcon`, shop,
 hotbar, store) use the same model. Claude Design prompts: `docs/weapon-prompts.md`.
 

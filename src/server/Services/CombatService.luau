@@ -163,6 +163,30 @@ local function setStance(character: Model, twist: number)
 	end
 end
 
+-- R6 (blocky): blocks cannot bend, so each arm points straight at its target from the shoulder (the
+-- shoulder joint is rebuilt so the arm turns around a point 0.5 below its top). Torso-space target.
+-- The client keeps the walk animation off these joints (attribute GunPose, see GunController).
+local function aimArmR6(torso: BasePart, jointName: string, side: number, target: Vector3)
+	local joint = torso:FindFirstChild(jointName)
+	if not joint or not joint:IsA("Motor6D") then
+		return
+	end
+	local shoulder = Vector3.new(side * 1.5, 0.5, 0)
+	local toTarget = target - shoulder
+	if toTarget.Magnitude < 0.05 then
+		return
+	end
+	local up = -toTarget.Unit -- the arm's +Y points back to the shoulder, its bottom (hand) to the target
+	local look = Vector3.yAxis - up * Vector3.yAxis:Dot(up) -- the arm's front faces up-ish (like a raised arm)
+	if look.Magnitude < 0.05 then
+		look = Vector3.new(0, 0, -1)
+	end
+	local back = -look.Unit
+	joint.C0 = CFrame.new(shoulder) * CFrame.fromMatrix(Vector3.zero, up:Cross(back), up)
+	joint.C1 = CFrame.new(0, 0.5, 0)
+	joint:SetAttribute("GunPose", true)
+end
+
 local function buildGun(player: Player, state: State)
 	local character = player.Character
 	if not character then
@@ -210,7 +234,11 @@ local function buildGun(player: Player, state: State)
 	setStance(character, twist)
 	local gunTurn = CFrame.Angles(0, twist, 0) -- turns the gun back to the body's forward direction
 	local gunLocal
-	if twoHanded then
+	local isR6 = torso.Name == "Torso"
+	if isR6 then
+		-- classic blocky: the gun at the end of the straight right arm, stock beside the right shoulder
+		gunLocal = if twoHanded then CFrame.new(1.05, 0.4, -1.45) else CFrame.new(0.45, 0.35, -1.15)
+	elseif twoHanded then
 		-- stock end in the shoulder pocket (front of the chest, right of center), barrel forward
 		local stockEnd = Vector3.new(torsoSize.X * 0.22, torsoSize.Y * 0.28, -torsoSize.Z * 0.5)
 		gunLocal = CFrame.new(stockEnd + gunTurn.LookVector * back) * gunTurn
@@ -251,6 +279,16 @@ local function buildGun(player: Player, state: State)
 	local leftPole = elbowPole(torso, "LeftElbowPole", Vector3.new(-torsoSize.X * 0.3, -torsoSize.Y * 1.4, -0.6))
 	addHandIK(humanoid, "RightHandIK", upperArm, character:FindFirstChild("RightHand"), handle:FindFirstChild("RightGrip"), rightPole)
 	addHandIK(humanoid, "LeftHandIK", leftUpper, leftHand, leftGrip, leftPole)
+
+	if isR6 then
+		local rightGrip = handle:FindFirstChild("RightGrip") :: Attachment?
+		if rightGrip then
+			aimArmR6(torso, "Right Shoulder", 1, (gunLocal * rightGrip.CFrame).Position)
+		end
+		if leftGrip then
+			aimArmR6(torso, "Left Shoulder", -1, (gunLocal * leftGrip.CFrame).Position)
+		end
+	end
 end
 
 local function cancelReload(state: State)
