@@ -63,8 +63,8 @@ Gun models (`shared/GunModels`): detailed mesh guns imported in Studio go in `Re
 grip point, barrel direction, muzzle, scale (`TARGET_LENGTH`) and skin tint (`*_Body`/`*_Accent`) are computed.
 Missing -> part-built fallback guns. Held gun: welded to the UpperTorso (points where the body faces,
 sized by arm length). R15: hands by IKControls on Handle attachments RightGrip/LeftGrip + bladed waist twist.
-R6 (default, blocky): shoulder joints rebuilt to point the arms at the grips; clients zero the arm animation
-on joints with attribute `GunPose` (GunController, PreSimulation).
+R6 (default, blocky): shoulder Motor6Ds disabled, fixed Welds ("Right Shoulder Gun") point the arms at the
+grips, so the walk animation cannot swing them.
 The held gun (CombatService) and the 3D icons (`client/GunIcon`, shop,
 hotbar, store) use the same model. Claude Design prompts: `docs/weapon-prompts.md`.
 

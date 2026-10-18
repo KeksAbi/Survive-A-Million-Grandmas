@@ -163,14 +163,23 @@ local function setStance(character: Model, twist: number)
 	end
 end
 
--- R6 (blocky): blocks cannot bend, so each arm points straight at its target from the shoulder (the
--- shoulder joint is rebuilt so the arm turns around a point 0.5 below its top). Torso-space target.
--- The client keeps the walk animation off these joints (attribute GunPose, see GunController).
+-- R6 (blocky): blocks cannot bend, so each arm points straight at its target from the shoulder (it turns
+-- around a point 0.5 below its top). Torso-space target. The animated shoulder Motor6D is switched off and
+-- a fixed Weld holds the arm instead, so the walk animation can never swing the gun arms.
 local function aimArmR6(torso: BasePart, jointName: string, side: number, target: Vector3)
-	local joint = torso:FindFirstChild(jointName)
-	if not joint or not joint:IsA("Motor6D") then
+	local motor = torso:FindFirstChild(jointName)
+	if not motor or not motor:IsA("Motor6D") then
 		return
 	end
+	local joint = torso:FindFirstChild(jointName .. " Gun")
+	if not joint then
+		joint = Instance.new("Weld")
+		joint.Name = jointName .. " Gun"
+		joint.Part0 = motor.Part0
+		joint.Part1 = motor.Part1
+		joint.Parent = torso
+	end
+	motor.Enabled = false
 	local shoulder = Vector3.new(side * 1.5, 0.5, 0)
 	local toTarget = target - shoulder
 	if toTarget.Magnitude < 0.05 then
@@ -184,7 +193,6 @@ local function aimArmR6(torso: BasePart, jointName: string, side: number, target
 	local back = -look.Unit
 	joint.C0 = CFrame.new(shoulder) * CFrame.fromMatrix(Vector3.zero, up:Cross(back), up)
 	joint.C1 = CFrame.new(0, 0.5, 0)
-	joint:SetAttribute("GunPose", true)
 end
 
 local function buildGun(player: Player, state: State)
