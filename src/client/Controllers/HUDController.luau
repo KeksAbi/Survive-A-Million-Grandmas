@@ -7,6 +7,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -131,6 +132,19 @@ local function buildCrosshair(root: Frame)
 		Parent = cross,
 	})
 	ui.Crosshair = cross
+
+	-- small reload bar under the crosshair (fills up while reloading)
+	local reloadBar = make("Frame", {
+		Name = "ReloadBar",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 8),
+		Size = UDim2.fromOffset(48, 6),
+		BackgroundColor3 = THEME.Dark,
+		Visible = false,
+		Parent = cross,
+	}, { corner(3), stroke(1) })
+	ui.CrossReloadFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = THEME.Gold, BorderSizePixel = 0, Parent = reloadBar }, { corner(3) })
+	ui.CrossReloadBar = reloadBar
 	ui.HitBars = {}
 	for _, rotation in { 45, -45 } do
 		local bar = make("Frame", {
@@ -253,6 +267,17 @@ local function buildBottom(root: Frame, ammoRoot: Frame)
 	}, { corner(10), stroke(2) })
 	ui.WeaponName = label({ Text = "PISTOL", Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(8, 6), TextXAlignment = Enum.TextXAlignment.Right, Parent = ammo })
 	ui.AmmoLabel = label({ Text = "12 / 12", Size = UDim2.new(1, -16, 0, 38), Position = UDim2.fromOffset(8, 30), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = THEME.Gold, Parent = ammo })
+	local reloadBar = make("Frame", {
+		Name = "ReloadBar",
+		Position = UDim2.new(0, 8, 1, -10),
+		Size = UDim2.new(1, -16, 0, 6),
+		BackgroundColor3 = Color3.fromRGB(50, 52, 64),
+		BorderSizePixel = 0,
+		Visible = false,
+		Parent = ammo,
+	}, { corner(3) })
+	ui.AmmoReloadFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = THEME.Red, BorderSizePixel = 0, Parent = reloadBar }, { corner(3) })
+	ui.AmmoReloadBar = reloadBar
 end
 
 local function buildBossBar(root: Frame)
@@ -308,15 +333,48 @@ local function refreshCash()
 	ui.CashLabel.Text = "$ " .. tostring(player:GetAttribute("Cash") or 0)
 end
 
+-- Reload timer: counts down from the weapon's ReloadTime while the "Reloading" attribute is true.
+local reloadConnection: RBXScriptConnection? = nil
+local function stopReloadTimer()
+	if reloadConnection then
+		reloadConnection:Disconnect()
+		reloadConnection = nil
+	end
+	ui.AmmoReloadBar.Visible = false
+	ui.CrossReloadBar.Visible = false
+end
+
+local function startReloadTimer(reloadTime: number)
+	stopReloadTimer()
+	local started = os.clock()
+	ui.AmmoReloadBar.Visible = true
+	ui.CrossReloadBar.Visible = true
+	ui.AmmoLabel.TextColor3 = THEME.Red
+	reloadConnection = RunService.RenderStepped:Connect(function()
+		local elapsed = os.clock() - started
+		local progress = math.clamp(elapsed / reloadTime, 0, 1)
+		ui.AmmoLabel.Text = string.format("RELOADING %.1fs", math.max(0, reloadTime - elapsed))
+		ui.AmmoReloadFill.Size = UDim2.fromScale(progress, 1)
+		ui.CrossReloadFill.Size = UDim2.fromScale(progress, 1)
+	end)
+end
+
+local wasReloading = false
 local function refreshWeapon()
 	local weaponId = player:GetAttribute("Weapon") or "Pistol"
 	local weapon = WeaponData.Weapons[weaponId]
 	if weapon then
 		ui.WeaponName.Text = string.upper(weapon.Name)
 	end
-	if player:GetAttribute("Reloading") then
-		ui.AmmoLabel.Text = "RELOADING"
-		ui.AmmoLabel.TextColor3 = THEME.Red
+	local reloading = player:GetAttribute("Reloading") == true
+	if reloading and not wasReloading and weapon then
+		startReloadTimer(weapon.ReloadTime)
+	elseif not reloading and wasReloading then
+		stopReloadTimer()
+	end
+	wasReloading = reloading
+	if reloading then
+		-- text is driven by the reload timer
 	else
 		ui.AmmoLabel.Text = tostring(player:GetAttribute("Ammo") or 0) .. " / " .. tostring(player:GetAttribute("MagSize") or 0)
 		ui.AmmoLabel.TextColor3 = THEME.Gold
