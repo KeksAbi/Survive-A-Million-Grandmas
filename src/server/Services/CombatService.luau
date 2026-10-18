@@ -298,14 +298,17 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 		reject(player, string.format("gun muzzle %.1f studs from the head (max %d)", originDistance, Config.Combat.MaxShotOriginDistance))
 		return
 	end
-	-- the muzzle may not be on the other side of a wall (shooting from cover): only solid map parts count
+	-- the muzzle may not be on the other side of a wall or under the floor (shooting from cover): then the
+	-- shot starts at the head instead, which is always on the player's side
 	local map = workspace:FindFirstChild("Map")
 	if map then
 		mapParams.FilterDescendantsInstances = { map }
 		local blocked = workspace:Raycast(head.Position, origin - head.Position, mapParams)
 		if blocked and blocked.Instance.CanCollide and blocked.Instance.Transparency < 1 then
-			reject(player, "muzzle behind " .. blocked.Instance:GetFullName())
-			return
+			local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+			reject(player, string.format("muzzle behind %s, shooting from the head instead (head y %.1f, muzzle %s, hand %s)",
+				blocked.Instance.Name, head.Position.Y, tostring(origin), if hand then tostring(hand.Position) else "?"))
+			origin = head.Position
 		end
 	end
 
