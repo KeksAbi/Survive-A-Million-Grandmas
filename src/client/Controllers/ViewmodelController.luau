@@ -20,12 +20,14 @@ local ViewmodelController = {}
 
 -- Where the grip sits relative to the camera (right, down, forward) and how big the gun is drawn, so it
 -- stays a corner of the screen and never covers the view.
+-- CS:GO-like: pulled back toward the camera and low on the right, so the back of the gun leaves the screen
+-- at the bottom right and the barrel reaches toward the middle.
 local HOLD = {
-	Pistol = CFrame.new(0.55, -0.55, -1.5),
-	Shotgun = CFrame.new(0.5, -0.55, -1.45),
-	AssaultRifle = CFrame.new(0.5, -0.55, -1.45),
+	Pistol = CFrame.new(0.42, -0.4, -1.05),
+	Shotgun = CFrame.new(0.4, -0.42, -0.95),
+	AssaultRifle = CFrame.new(0.4, -0.42, -0.95),
 }
-local DEFAULT_HOLD = CFrame.new(0.5, -0.55, -1.45)
+local DEFAULT_HOLD = CFrame.new(0.4, -0.42, -0.95)
 local VIEW_SCALE = { Pistol = 0.5, Shotgun = 0.42, AssaultRifle = 0.42 }
 
 local model: Model? = nil
