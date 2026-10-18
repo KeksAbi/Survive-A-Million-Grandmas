@@ -15,6 +15,7 @@ export type WeaponDefinition = {
 	Automatic: boolean,
 	Range: number,
 	Look: { BodyColor: Color3, AccentColor: Color3, Size: Vector3 }, -- placeholder gun model
+	HoldScale: number, -- size in the hands, times Config.Combat.HeldGunScale
 }
 
 local Weapons: { [string]: WeaponDefinition } = {
@@ -30,6 +31,7 @@ local Weapons: { [string]: WeaponDefinition } = {
 		ReloadTime = 1.1,
 		Automatic = false,
 		Range = 200,
+		HoldScale = 0.7,
 		Look = {
 			BodyColor = Color3.fromRGB(45, 45, 52),
 			AccentColor = Color3.fromRGB(90, 90, 100),
@@ -48,6 +50,7 @@ local Weapons: { [string]: WeaponDefinition } = {
 		ReloadTime = 1.5,
 		Automatic = false,
 		Range = 90,
+		HoldScale = 0.8,
 		Look = {
 			BodyColor = Color3.fromRGB(60, 60, 66),
 			AccentColor = Color3.fromRGB(140, 85, 40),
@@ -66,6 +69,7 @@ local Weapons: { [string]: WeaponDefinition } = {
 		ReloadTime = 1.7,
 		Automatic = true,
 		Range = 200,
+		HoldScale = 1.0,
 		Look = {
 			BodyColor = Color3.fromRGB(35, 38, 45),
 			AccentColor = Color3.fromRGB(200, 170, 70),

@@ -111,7 +111,7 @@ end
 -- the avatar's arm shape. Both hands reach for it with IKControls (right hand on the grip, left hand on the
 -- pump / handguard). Long guns sit at the right shoulder; the pistol is held out at arm's length.
 -- Distances and the gun size follow the avatar's torso and arm size. Rebuilt on equip, skin and respawn.
-local function addHandIK(humanoid: Humanoid, name: string, chainRoot: Instance?, hand: Instance?, target: Attachment?)
+local function addHandIK(humanoid: Humanoid, name: string, chainRoot: Instance?, hand: Instance?, target: Attachment?, pole: Attachment?)
 	local old = humanoid:FindFirstChild(name)
 	if old then
 		old:Destroy()
@@ -121,12 +121,25 @@ local function addHandIK(humanoid: Humanoid, name: string, chainRoot: Instance?,
 	end
 	local ik = Instance.new("IKControl")
 	ik.Name = name
-	ik.Type = Enum.IKControlType.Position
+	ik.Type = Enum.IKControlType.Transform -- position AND rotation: the hand wraps the gun the right way
 	ik.ChainRoot = chainRoot
 	ik.EndEffector = hand
 	ik.Target = target
+	ik.Pole = pole -- which way the elbow points
 	ik.Weight = 1
 	ik.Parent = humanoid
+end
+
+-- Elbow guide attachments on the torso (created once per character).
+local function elbowPole(torso: BasePart, name: string, position: Vector3): Attachment
+	local pole = torso:FindFirstChild(name)
+	if not pole then
+		pole = Instance.new("Attachment")
+		pole.Name = name
+		pole.Parent = torso
+	end
+	pole.Position = position
+	return pole :: Attachment
 end
 
 local function buildGun(player: Player, state: State)
@@ -152,15 +165,44 @@ local function buildGun(player: Player, state: State)
 	local torsoSize = torso.Size
 
 	local weapon = Weapons[state.Equipped]
-	local twoHanded = weapon.Id ~= "Pistol"
-	-- close to the body, so even short arms reach the grip and the pump / handguard
-	local hold = if twoHanded
-		then CFrame.new(torsoSize.X * 0.25, torsoSize.Y * 0.1, -(torsoSize.Z * 0.5 + armLength * 0.2))
-		else CFrame.new(torsoSize.X * 0.1, torsoSize.Y * 0.15, -(torsoSize.Z * 0.5 + armLength * 0.5))
+	local gun = GunModels.Build(weapon, tostring(player:GetAttribute("Skin") or "Default"))
+	local size = scale * weapon.HoldScale
+	if math.abs(size - 1) > 0.02 then
+		gun:ScaleTo(size)
+	end
 
-	local gun = GunModels.Build(weapon, tostring(player:GetAttribute("Skin") or "Default"), torso.CFrame * hold)
-	if math.abs(scale - 1) > 0.02 then
-		gun:ScaleTo(scale)
+	-- how far the gun reaches back behind the hand (the stock), in grip space
+	local handle = gun:FindFirstChild("Handle") :: BasePart
+	local back = 0
+	for _, part in gun:GetDescendants() do
+		if part:IsA("BasePart") then
+			local local_ = handle.CFrame:ToObjectSpace(part.CFrame)
+			local halfZ = (math.abs(local_.RightVector.Z) * part.Size.X + math.abs(local_.UpVector.Z) * part.Size.Y
+				+ math.abs(local_.LookVector.Z) * part.Size.Z) / 2
+			back = math.max(back, local_.Position.Z + halfZ)
+		end
+	end
+
+	-- in line with the right shoulder at shoulder height. Long guns: the end of the stock rests against the
+	-- front of the shoulder (nothing inside the body). Pistol: held out at half an arm's length.
+	local twoHanded = back > 0.6
+	local forward = if twoHanded then torsoSize.Z * 0.5 + back + 0.05 else torsoSize.Z * 0.5 + armLength * 0.5
+	local hold = CFrame.new(torsoSize.X * 0.32, torsoSize.Y * 0.28, -forward)
+	gun:PivotTo(torso.CFrame * hold)
+
+	-- the left hand holds as far forward as the left arm can reach (slides back toward the grip if not)
+	local leftGrip = handle:FindFirstChild("LeftGrip") :: Attachment?
+	local leftUpper = character:FindFirstChild("LeftUpperArm")
+	local leftLower = character:FindFirstChild("LeftLowerArm")
+	local leftHand = character:FindFirstChild("LeftHand")
+	if leftGrip and leftUpper and leftLower and leftHand then
+		local reach = (leftUpper.Size.Y + leftLower.Size.Y + leftHand.Size.Y * 0.5) * 0.95
+		local shoulder = torso.CFrame * Vector3.new(-torsoSize.X * 0.5, torsoSize.Y * 0.3, 0)
+		local target = leftGrip.CFrame
+		while target.Position.Z < -0.3 and (handle.CFrame * target.Position - shoulder).Magnitude > reach do
+			target = target + Vector3.new(0, 0, 0.05)
+		end
+		leftGrip.CFrame = target
 	end
 	for _, part in gun:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -173,9 +215,11 @@ local function buildGun(player: Player, state: State)
 	end
 	gun.Parent = character
 
-	local handle = gun:FindFirstChild("Handle")
-	addHandIK(humanoid, "RightHandIK", upperArm, character:FindFirstChild("RightHand"), handle and handle:FindFirstChild("RightGrip"))
-	addHandIK(humanoid, "LeftHandIK", character:FindFirstChild("LeftUpperArm"), character:FindFirstChild("LeftHand"), handle and handle:FindFirstChild("LeftGrip"))
+	-- elbows: right one out to the side and down, left one down under the gun
+	local rightPole = elbowPole(torso, "RightElbowPole", Vector3.new(torsoSize.X * 1.4, -torsoSize.Y * 0.6, 0.4))
+	local leftPole = elbowPole(torso, "LeftElbowPole", Vector3.new(-torsoSize.X * 0.3, -torsoSize.Y * 1.4, -0.6))
+	addHandIK(humanoid, "RightHandIK", upperArm, character:FindFirstChild("RightHand"), handle:FindFirstChild("RightGrip"), rightPole)
+	addHandIK(humanoid, "LeftHandIK", character:FindFirstChild("LeftUpperArm"), leftHand, leftGrip, leftPole)
 end
 
 local function cancelReload(state: State)

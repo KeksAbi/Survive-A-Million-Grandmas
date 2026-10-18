@@ -103,13 +103,17 @@ local function finish(model: Model, muzzle: Vector3, support: Vector3, base: CFr
 	attachment.Name = "Muzzle"
 	attachment.Position = muzzle
 	attachment.Parent = handle
+	-- hand targets, oriented like an R15 hand holding it: fingers (hand -Y) along the gun, so the hand's +Y
+	-- points back (+Z). Right hand: thumb (hand LookVector) up. Left hand under the gun: palm up, thumb left.
 	local right = Instance.new("Attachment")
 	right.Name = "RightGrip"
-	right.Position = Vector3.new(0, -0.25, 0.05) -- middle of the grip
+	right.CFrame = CFrame.fromMatrix(Vector3.new(0.04, -0.25, 0.05), Vector3.xAxis, Vector3.zAxis)
 	right.Parent = handle
 	local left = Instance.new("Attachment")
 	left.Name = "LeftGrip"
-	left.Position = support
+	left.CFrame = if support.Z < -0.5
+		then CFrame.fromMatrix(support, Vector3.yAxis, Vector3.zAxis) -- under the pump / handguard
+		else CFrame.fromMatrix(support, Vector3.xAxis, Vector3.zAxis) -- pistol: cupping the right hand
 	left.Parent = handle
 	handle.Parent = model
 	model.PrimaryPart = handle
