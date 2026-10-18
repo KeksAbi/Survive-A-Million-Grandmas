@@ -339,6 +339,10 @@ function EnemyService.Freeze(seconds: number)
 	frozenUntil = math.max(frozenUntil, os.clock() + seconds)
 end
 
+function EnemyService.Unfreeze()
+	frozenUntil = 0
+end
+
 local accumulator = 0
 
 local function step(dt: number)

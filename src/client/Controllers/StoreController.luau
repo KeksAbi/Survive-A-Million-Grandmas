@@ -237,11 +237,21 @@ end
 -- REVIVE button (center) while dead during a wave.
 local function buildRevive()
 	local kit = HUDController.Kit
-	local container = HUDController.CreateContainer("Revive", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.76), Vector2.new(280, 60))
+	local container = HUDController.CreateContainer("Revive", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.74), Vector2.new(320, 116))
+	-- "LAST CHANCE 7" while the whole team is down (workspace ReviveCountdown)
+	reviveUi.Countdown = kit.Label({
+		Text = "",
+		Visible = false,
+		TextColor3 = kit.Theme.Red,
+		Size = UDim2.new(1, 0, 0, 46),
+		Parent = container,
+	})
 	local button = kit.Make("TextButton", {
 		Text = "",
 		Visible = false,
-		Size = UDim2.fromScale(1, 1),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.fromOffset(280, 60),
 		BackgroundColor3 = kit.Theme.Green,
 		Parent = container,
 	}, { kit.Corner(12), kit.Stroke(3) }) :: TextButton
@@ -268,6 +278,9 @@ local function refreshRevive()
 		and player:GetAttribute("RevivedWave") ~= wave
 		and (credits > 0 or product.Id > 0)
 	reviveUi.Button.Visible = show
+	local countdown = workspace:GetAttribute("ReviveCountdown")
+	reviveUi.Countdown.Visible = show and countdown ~= nil
+	reviveUi.Countdown.Text = "LAST CHANCE  " .. tostring(countdown or "")
 	if credits > 0 then
 		reviveUi.Label.Text = "REVIVE (" .. credits .. " LEFT)"
 	else
@@ -291,6 +304,7 @@ function StoreController.Init()
 	end)
 	workspace:GetAttributeChangedSignal("MatchState"):Connect(refreshRevive)
 	workspace:GetAttributeChangedSignal("Wave"):Connect(refreshRevive)
+	workspace:GetAttributeChangedSignal("ReviveCountdown"):Connect(refreshRevive)
 	refreshStore()
 	refreshRevive()
 end

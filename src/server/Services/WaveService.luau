@@ -117,6 +117,42 @@ local function intermission(waveIndex: number, overrideSeconds: number?): boolea
 	return true
 end
 
+-- Whole team down: freeze the grandmas and give everyone LastChanceSeconds to revive (workspace attribute
+-- ReviveCountdown drives the client countdown). Returns true if someone is alive again.
+local function lastChance(): boolean
+	local monetization = Config.Monetization
+	local anyCredits = false
+	for _, player in Players:GetPlayers() do
+		if (player:GetAttribute("Revives") or 0) > 0 then
+			anyCredits = true
+		end
+	end
+	if monetization.Products.Revive.Id <= 0 and not anyCredits then
+		return false
+	end
+	local seconds = monetization.LastChanceSeconds
+	EnemyService.Freeze(seconds + 1)
+	notifyAll("EVERYONE IS DOWN! REVIVE NOW!", "bad")
+	local deadline = os.clock() + seconds
+	local revived = false
+	while os.clock() < deadline do
+		workspace:SetAttribute("ReviveCountdown", math.ceil(deadline - os.clock()))
+		if #PlayerService.GetLivingPlayers() > 0 then
+			revived = true
+			break
+		end
+		if #Players:GetPlayers() == 0 or jumpTarget then
+			break
+		end
+		task.wait(0.1)
+	end
+	workspace:SetAttribute("ReviveCountdown", nil)
+	if revived then
+		task.delay(1, EnemyService.Unfreeze) -- a moment to get up (the spawn shield covers the rest)
+	end
+	return revived
+end
+
 -- Spawns the wave gradually and waits for it to end. Returns "Cleared", "Defeat", "Abandoned" or "Jump".
 local function runWave(waveIndex: number): string
 	local def = WaveDefinitions[waveIndex]
@@ -140,8 +176,8 @@ local function runWave(waveIndex: number): string
 		if jumpTarget then
 			return "Jump"
 		end
-		if #PlayerService.GetLivingPlayers() == 0 then
-			return "Defeat"
+		if #PlayerService.GetLivingPlayers() == 0 and not lastChance() then
+			return if jumpTarget then "Jump" else "Defeat"
 		end
 
 		local now = os.clock()

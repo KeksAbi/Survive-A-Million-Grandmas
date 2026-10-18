@@ -34,7 +34,8 @@ Server services (`src/server/Services`):
   `leaderstats` (Kills, Best Wave, Wins). Without DataStore access: session only, warning in Output.
 - `PurchaseService`: gamepasses (`Config.Monetization.Passes`: DoubleCash -> `CashMultiplier` attr on kill cash,
   VIP -> tag + Gold skin + sparkles, SkinPack -> skins), Revive product (ProcessReceipt -> DataService credit,
-  auto-used when dead in a wave, `UseRevive` remote, `RevivesPerWave`), `SelectSkin` remote. Attrs `Pass<Key>`,
+  auto-used when dead in a wave, `UseRevive` remote, `RevivesPerWave`), `SelectSkin` remote. When the whole
+  team is down, WaveService gives a `LastChanceSeconds` revive window (enemies frozen, workspace `ReviveCountdown`). Attrs `Pass<Key>`,
   `Skin`, `RevivedWave`.
 - `AdminService`: admin panel requests (`Admin` remote: jump to wave, skip wave/countdown, cash, all guns,
   kill all, heal). Admins = `Config.Admin.UserIds`, the place owner, everyone in Studio; player attr `Admin`.
