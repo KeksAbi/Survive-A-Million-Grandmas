@@ -14,7 +14,7 @@
 --   WorldFx(kind: string, ...)                  visual-only events for everyone:
 --       "Slipper" (from, to, flightTime) | "Grenade" (from, landing, flightTime, fuse)
 --       "Explosion" (position, radius) | "StompWarning" (position, radius, seconds) | "Stomp" (position, radius)
---       "BossIntro" (enemyId, seconds)  boss cutscene
+--       "BossIntro" (enemyId, seconds, groundPosition, facing)  boss cutscene
 --   Notify(text: string, kind: string)          banner message ("info", "good", "bad", "boss", "gold")
 --   MatchResult(result: { Victory: boolean, WavesSurvived: number, Kills: number, CashEarned: number,
 --               TeamKills: number, BestWave: number, NextMatchIn: number })   results screen

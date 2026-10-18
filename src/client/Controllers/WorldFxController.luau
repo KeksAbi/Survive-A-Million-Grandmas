@@ -15,8 +15,8 @@ local HANDLERS = {
 	Explosion = Effects.Explosion,
 	StompWarning = Effects.StompWarning,
 	Stomp = Effects.Stomp,
-	BossIntro = function(enemyId: number, seconds: number)
-		task.spawn(BossCutsceneController.Play, enemyId, seconds)
+	BossIntro = function(enemyId: number, seconds: number, groundPosition: Vector3, facing: Vector3)
+		task.spawn(BossCutsceneController.Play, enemyId, seconds, groundPosition, facing)
 	end,
 }
 

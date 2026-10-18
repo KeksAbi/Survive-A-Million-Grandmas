@@ -141,7 +141,7 @@ local function runWave(waveIndex: number): string
 					EnemyService.MarkBoss(enemy)
 					EnemyService.Freeze(seconds)
 					PlayerService.ShieldAll(seconds + 1)
-					Remotes.Get("WorldFx"):FireAllClients("BossIntro", enemy.Id, seconds)
+					Remotes.Get("WorldFx"):FireAllClients("BossIntro", enemy.Id, seconds, enemy.Position, enemy.Facing)
 					nextSpawnAt = now + seconds
 					task.delay(seconds, notifyAll, "DEFEAT THE MEGA GRANDMA!", "boss")
 				end

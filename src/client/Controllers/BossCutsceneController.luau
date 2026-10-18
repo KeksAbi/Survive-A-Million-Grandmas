@@ -32,18 +32,15 @@ local function tween(instance: Instance, seconds: number, goal: { [string]: any 
 	return t
 end
 
+-- The boss model may replicate a moment after the cutscene event, so this is checked every frame.
 local function findBoss(enemyId: number): Model?
-	local deadline = os.clock() + 2
-	while os.clock() < deadline do
-		local folder = workspace:FindFirstChild("Enemies")
-		if folder then
-			for _, model in folder:GetChildren() do
-				if model:GetAttribute("EnemyId") == enemyId then
-					return model
-				end
+	local folder = workspace:FindFirstChild("Enemies")
+	if folder then
+		for _, model in folder:GetChildren() do
+			if model:GetAttribute("EnemyId") == enemyId and model:IsA("Model") then
+				return model
 			end
 		end
-		task.wait(0.05)
 	end
 	return nil
 end
@@ -166,158 +163,214 @@ local function lightning(ui)
 	Effects.PlaySound("Thunder")
 end
 
-function BossCutsceneController.Play(enemyId: number, seconds: number)
+function BossCutsceneController.Play(enemyId: number, seconds: number, groundPosition: Vector3, facing: Vector3)
 	if playing then
 		return
 	end
-	local boss = findBoss(enemyId)
-	if not boss then
-		return -- model never arrived: skip the show, gameplay is unaffected
-	end
 	playing = true
+	print("[BossCutscene] start")
 
-	local def = EnemyDefinitions[tostring(boss:GetAttribute("EnemyType"))] or { RootHeight = 12 }
-	local home = boss:GetPivot() -- where the server placed her
-	local look = Vector3.new(home.LookVector.X, 0, home.LookVector.Z).Unit
-	local ground = home.Position - Vector3.new(0, def.RootHeight, 0)
+	-- the camera shots only need the server's position and facing; the model (rising, glowing eyes) is a bonus
+	local boss: Model? = nil
+	local def = EnemyDefinitions.MegaGrandma
+	local ground = Vector3.new(groundPosition.X, 0, groundPosition.Z)
+	local look = Vector3.new(facing.X, 0, facing.Z)
+	look = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, 1)
+	local home = CFrame.lookAt(ground + Vector3.new(0, def.RootHeight, 0), ground + Vector3.new(0, def.RootHeight, 0) + look)
 	local headHeight = def.RootHeight + 8 -- head center above the ground at scale 4
 
 	local ui = buildGui()
 	local savedCamera = camera.CFrame
-	HUDController.SetCutscene(true)
-	setControls(false)
-	camera.CameraType = Enum.CameraType.Scriptable
-	local restoreWorld = darkenWorld()
-	local restoreEyes = lightEyes(boss)
-	local root = boss:FindFirstChild("Root")
-	local overheadBar = root and root:FindFirstChild("BossBar")
-	if overheadBar then
-		overheadBar.Enabled = false -- no health bar in the movie
+	local restoreWorld: (() -> ())? = nil
+	local restoreEyes: (() -> ())? = nil
+	local overheadBar: BillboardGui? = nil
+	local connection: RBXScriptConnection? = nil
+	local finished = false
+
+	-- always runs exactly once: on the normal end and if anything errors
+	local function finish()
+		if finished then
+			return
+		end
+		finished = true
+		if connection then
+			connection:Disconnect()
+		end
+		pcall(function()
+			if boss then
+				boss:PivotTo(home)
+			end
+		end)
+		if restoreEyes then
+			restoreEyes()
+		end
+		if overheadBar then
+			overheadBar.Enabled = true
+		end
+		if restoreWorld then
+			restoreWorld()
+		end
+		camera.CFrame = savedCamera
+		camera.CameraType = Enum.CameraType.Custom
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			camera.CameraSubject = humanoid
+		end
+		setControls(true)
+		HUDController.SetCutscene(false)
+		tween(ui.TopBar, 0.4, { Position = UDim2.fromScale(0, -0.13) })
+		tween(ui.BottomBar, 0.4, { Position = UDim2.fromScale(0, 1) })
+		tween(ui.Title, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		tween(ui.Subtitle, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		tween(ui.Whisper, 0.2, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		tween(ui.Black, 0.5, { BackgroundTransparency = 1 })
+		task.delay(0.6, function()
+			ui.Gui:Destroy()
+		end)
+		playing = false
+		print("[BossCutscene] end")
 	end
 
-	-- opening: bars in, black with the whisper
-	tween(ui.TopBar, 0.6, { Position = UDim2.fromScale(0, 0) })
-	tween(ui.BottomBar, 0.6, { Position = UDim2.fromScale(0, 0.87) })
-	ui.Black.BackgroundTransparency = 0
-	tween(ui.Whisper, 0.3, { TextTransparency = 0, TextStrokeTransparency = 0.4 })
+	local ok, err = pcall(function()
+		HUDController.SetCutscene(true)
+		setControls(false)
+		camera.CameraType = Enum.CameraType.Scriptable
+		restoreWorld = darkenWorld()
 
-	local rise = 1 -- 1 = fully underground, 0 = standing
-	local shake = 0
-	local start = os.clock()
-	local events = {
-		{ 0.35, function()
-			tween(ui.Whisper, 0.3, { TextTransparency = 1, TextStrokeTransparency = 1 })
-			tween(ui.Black, 0.5, { BackgroundTransparency = 1 })
-		end },
-		{ 0.9, function()
-			Effects.PlaySound("Rumble")
-		end },
-		{ 2.7, function() -- she's out: shockwave
-			Effects.Stomp(ground, 24)
-			Effects.Explosion(ground + Vector3.new(0, 1, 0), 10)
-			shake = 3
-		end },
-		{ 3.3, function()
-			lightning(ui)
-			shake = math.max(shake, 1.5)
-		end },
-		{ 4.2, function()
-			lightning(ui)
-			shake = math.max(shake, 1.5)
-		end },
-		{ 5.0, function() -- title slam
-			ui.Title.Size = UDim2.fromScale(1.4, 0.3)
-			ui.Title.TextTransparency = 0
-			ui.Title.TextStrokeTransparency = 0
-			tween(ui.Title, 0.35, { Size = UDim2.fromScale(0.8, 0.16) }, Enum.EasingStyle.Back)
-			Effects.PlaySound("BossRoar")
-			shake = 3.5
-		end },
-		{ 5.35, function()
-			tween(ui.Subtitle, 0.4, { TextTransparency = 0, TextStrokeTransparency = 0.3 })
-		end },
-		{ seconds - 0.6, function()
-			tween(ui.Black, 0.4, { BackgroundTransparency = 0 })
-		end },
-	}
-	local nextEvent = 1
-
-	local connection
-	connection = RunService.RenderStepped:Connect(function(dt)
-		local t = os.clock() - start
-		while events[nextEvent] and t >= events[nextEvent][1] do
-			events[nextEvent][2]()
-			nextEvent += 1
-		end
-
-		-- boss rising out of the ground (local only; the server froze her in place)
-		if t >= 0.9 and t <= 2.7 then
-			local p = (t - 0.9) / 1.8
-			rise = 1 - (1 - (1 - p) ^ 3) -- ease out
-			shake = math.max(shake, 0.6)
-		elseif t > 2.7 then
-			rise = 0
-		end
-		local jitter = if rise > 0 and rise < 1 then Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * 0.6 else Vector3.zero
-		boss:PivotTo(home + Vector3.new(0, -rise * (def.RootHeight * 2 + 4), 0) + jitter)
-
-		-- camera shots
-		local cameraCFrame
-		if t < 3.0 then
-			-- shot 1: low at her feet, looking up as she rises
-			local p = math.clamp((t - 0.5) / 2.5, 0, 1)
-			local position = ground + look * (18 - 5 * p) + Vector3.new(0, 1.5 + p, 0)
-			local target = ground + Vector3.new(0, 4 + (1 - rise) * (headHeight - 4), 0)
-			cameraCFrame = CFrame.lookAt(position, target)
-		elseif t < 4.8 then
-			-- shot 2: slow circle around her in the dark
-			local p = (t - 3.0) / 1.8
-			local angle = math.rad(-70 + 110 * p)
-			local side = Vector3.new(-look.Z, 0, look.X)
-			local offset = (look * math.cos(angle) + side * math.sin(angle)) * 34
-			cameraCFrame = CFrame.lookAt(ground + offset + Vector3.new(0, 6 + 10 * p, 0), ground + Vector3.new(0, headHeight - 4, 0))
-		else
-			-- shot 3: close-up on the face, pushing in slowly
-			local p = math.clamp((t - 4.8) / 1.6, 0, 1)
-			local head = ground + Vector3.new(0, headHeight, 0)
-			cameraCFrame = CFrame.lookAt(head + look * (17 - 6 * p) + Vector3.new(0, 0.5, 0), head - Vector3.new(0, 1, 0))
-		end
-		if shake > 0 then
-			local s = math.rad(shake)
-			cameraCFrame *= CFrame.Angles((math.random() - 0.5) * s, (math.random() - 0.5) * s, 0)
-			shake = math.max(0, shake - dt * 4)
-		end
-		camera.CFrame = cameraCFrame
-
-		if t >= seconds then
-			connection:Disconnect()
-			-- back to the game
-			boss:PivotTo(home)
-			restoreEyes()
-			if overheadBar then
-				overheadBar.Enabled = true
+		-- picks up the boss model as soon as it exists on this client
+		local function acquireBoss()
+			local found = findBoss(enemyId)
+			if not found then
+				return
 			end
-			restoreWorld()
-			camera.CFrame = savedCamera
-			camera.CameraType = Enum.CameraType.Custom
-			local character = player.Character
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				camera.CameraSubject = humanoid
+			boss = found
+			home = found:GetPivot()
+			restoreEyes = lightEyes(found)
+			local root = found:FindFirstChild("Root")
+			local bar = root and root:FindFirstChild("BossBar")
+			if bar and bar:IsA("BillboardGui") then
+				overheadBar = bar
+				bar.Enabled = false -- no health bar in the movie
 			end
-			setControls(true)
-			HUDController.SetCutscene(false)
-			tween(ui.TopBar, 0.4, { Position = UDim2.fromScale(0, -0.13) })
-			tween(ui.BottomBar, 0.4, { Position = UDim2.fromScale(0, 1) })
-			tween(ui.Title, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
-			tween(ui.Subtitle, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
-			tween(ui.Black, 0.5, { BackgroundTransparency = 1 })
-			task.delay(0.6, function()
-				ui.Gui:Destroy()
+		end
+		acquireBoss()
+
+		-- opening: bars in, black with the whisper
+		tween(ui.TopBar, 0.6, { Position = UDim2.fromScale(0, 0) })
+		tween(ui.BottomBar, 0.6, { Position = UDim2.fromScale(0, 0.87) })
+		ui.Black.BackgroundTransparency = 0
+		tween(ui.Whisper, 0.3, { TextTransparency = 0, TextStrokeTransparency = 0.4 })
+
+		local rise = 1 -- 1 = fully underground, 0 = standing
+		local shake = 0
+		local start = os.clock()
+		local events = {
+			{ 0.35, function()
+				tween(ui.Whisper, 0.3, { TextTransparency = 1, TextStrokeTransparency = 1 })
+				tween(ui.Black, 0.5, { BackgroundTransparency = 1 })
+			end },
+			{ 0.9, function()
+				Effects.PlaySound("Rumble")
+			end },
+			{ 2.7, function() -- she's out: shockwave
+				Effects.Stomp(ground, 24)
+				Effects.Explosion(ground + Vector3.new(0, 1, 0), 10)
+				shake = 3
+			end },
+			{ 3.3, function()
+				lightning(ui)
+				shake = math.max(shake, 1.5)
+			end },
+			{ 4.2, function()
+				lightning(ui)
+				shake = math.max(shake, 1.5)
+			end },
+			{ 5.0, function() -- title slam
+				ui.Title.Size = UDim2.fromScale(1.4, 0.3)
+				ui.Title.TextTransparency = 0
+				ui.Title.TextStrokeTransparency = 0
+				tween(ui.Title, 0.35, { Size = UDim2.fromScale(0.8, 0.16) }, Enum.EasingStyle.Back)
+				Effects.PlaySound("BossRoar")
+				shake = 3.5
+			end },
+			{ 5.35, function()
+				tween(ui.Subtitle, 0.4, { TextTransparency = 0, TextStrokeTransparency = 0.3 })
+			end },
+			{ seconds - 0.6, function()
+				tween(ui.Black, 0.4, { BackgroundTransparency = 0 })
+			end },
+		}
+		local nextEvent = 1
+
+		connection = RunService.RenderStepped:Connect(function(dt)
+			local stepOk, stepErr = pcall(function()
+				local t = os.clock() - start
+				if not boss then
+					acquireBoss()
+				end
+				while events[nextEvent] and t >= events[nextEvent][1] do
+					local event = events[nextEvent]
+					nextEvent += 1
+					event[2]()
+				end
+
+				-- boss rising out of the ground (local only; the server froze her in place)
+				if t >= 0.9 and t <= 2.7 then
+					local p = (t - 0.9) / 1.8
+					rise = (1 - p) ^ 3 -- ease out
+					shake = math.max(shake, 0.6)
+				elseif t > 2.7 then
+					rise = 0
+				end
+				if boss then
+					local jitter = if rise > 0 and rise < 1 then Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * 0.6 else Vector3.zero
+					boss:PivotTo(home + Vector3.new(0, -rise * (def.RootHeight * 2 + 4), 0) + jitter)
+				end
+
+				-- camera shots
+				local cameraCFrame
+				if t < 3.0 then
+					-- shot 1: low at her feet, looking up as she rises
+					local p = math.clamp((t - 0.5) / 2.5, 0, 1)
+					local position = ground + look * (18 - 5 * p) + Vector3.new(0, 1.5 + p, 0)
+					local target = ground + Vector3.new(0, 4 + (1 - rise) * (headHeight - 4), 0)
+					cameraCFrame = CFrame.lookAt(position, target)
+				elseif t < 4.8 then
+					-- shot 2: slow circle around her in the dark
+					local p = (t - 3.0) / 1.8
+					local angle = math.rad(-70 + 110 * p)
+					local side = Vector3.new(-look.Z, 0, look.X)
+					local offset = (look * math.cos(angle) + side * math.sin(angle)) * 34
+					cameraCFrame = CFrame.lookAt(ground + offset + Vector3.new(0, 6 + 10 * p, 0), ground + Vector3.new(0, headHeight - 4, 0))
+				else
+					-- shot 3: close-up on the face, pushing in slowly
+					local p = math.clamp((t - 4.8) / 1.6, 0, 1)
+					local head = ground + Vector3.new(0, headHeight, 0)
+					cameraCFrame = CFrame.lookAt(head + look * (17 - 6 * p) + Vector3.new(0, 0.5, 0), head - Vector3.new(0, 1, 0))
+				end
+				if shake > 0 then
+					local s = math.rad(shake)
+					cameraCFrame *= CFrame.Angles((math.random() - 0.5) * s, (math.random() - 0.5) * s, 0)
+					shake = math.max(0, shake - dt * 4)
+				end
+				camera.CameraType = Enum.CameraType.Scriptable -- in case anything switched it back
+				camera.CFrame = cameraCFrame
+
+				if t >= seconds then
+					finish()
+				end
 			end)
-			playing = false
-		end
+			if not stepOk then
+				warn("[BossCutscene] error during the cutscene: " .. tostring(stepErr))
+				finish()
+			end
+		end)
 	end)
+	if not ok then
+		warn("[BossCutscene] error starting the cutscene: " .. tostring(err))
+		finish()
+	end
 end
 
 return BossCutsceneController
