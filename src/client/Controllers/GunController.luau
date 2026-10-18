@@ -17,6 +17,7 @@ local SkinData = require(Shared.SkinDefinitions)
 local Effects = require(script.Parent.Parent.Effects)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
+local ViewmodelController = require(script.Parent.ViewmodelController)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -194,8 +195,11 @@ local function tryFire()
 	end
 	fireRemote:FireServer(origin, direction, aimedEnemyId)
 
-	-- instant local feedback (cosmetic; the server decides real hits)
-	Effects.MuzzleFlash(origin)
+	-- instant local feedback (cosmetic; the server decides real hits). In first person the flash and the
+	-- tracers start at the on-screen gun (viewmodel) instead of the hidden one in the hand.
+	local fxOrigin = ViewmodelController.GetMuzzle() or origin
+	ViewmodelController.Kick()
+	Effects.MuzzleFlash(fxOrigin)
 	Effects.PlaySound("Fire_" .. weapon.Id, origin)
 	-- tracers end where the bullet really stops: the same ray the server casts (enemies + map, starting
 	-- behind the muzzle), so they never fly through trees, benches or the fountain
@@ -215,7 +219,7 @@ local function tryFire()
 		if pellet == 1 and aimedEnemyId and (aimPoint - origin).Magnitude < (endPosition - origin).Magnitude then
 			endPosition = aimPoint -- crosshair was on a grandma: the server counts it, so the tracer stops there
 		end
-		Effects.Trail(origin, endPosition, tracerColor(player))
+		Effects.Trail(fxOrigin, endPosition, tracerColor(player))
 		local enemiesFolder = workspace:FindFirstChild("Enemies")
 		if hit and not (enemiesFolder and hit.Instance:IsDescendantOf(enemiesFolder)) then
 			Effects.HitSpark(endPosition) -- bullet hit the map

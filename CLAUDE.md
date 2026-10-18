@@ -53,7 +53,7 @@ fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in 
 buttons FIRE/R/G; touch aims through the screen center with aim assist), `EnemyBarController` (health bars over
 damaged grandmas from the `HealthRatio` attribute), `BossCutsceneController` (7 s MEGA GRANDMA intro: rises
 out of the ground, lightning, title slam; server freezes enemies + shields players meanwhile), `AdminController` (admin panel top right, F2), `StoreController` (STORE button bottom left / top left on
-touch: passes + gun skins; REVIVE button while dead), `AtmosphereController` (dark red
+touch: passes + gun skins; REVIVE button while dead), `ViewmodelController` (first-person gun bottom right), `AtmosphereController` (dark red
 dusk from the boss cutscene until that wave ends, `Config.Boss.WaveLighting`), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
@@ -144,7 +144,8 @@ Report honestly what was tested and what was not.
   rejected). Every hook is in place; filling an id there is all it takes.
 - Admin panel (F2): wave buttons 1-10 (red = boss), skip wave, start now, +$, all guns, kill all, heal.
 - `Config.Debug.GiveAllWeapons` (false): set true to own every gun for testing.
-- In first person the own character (and gun) is hidden by Roblox; there is no viewmodel yet.
+- First person: Roblox hides the own character; `ViewmodelController` draws the equipped gun bottom right
+  (bob, sway, recoil, reload dip). It can poke into walls when standing right against one.
 
 ## Future (after MVP, only on request)
 More grandma types (flying, exploding, ninja, zombie), boss variants, barricades, turrets, airstrike,
