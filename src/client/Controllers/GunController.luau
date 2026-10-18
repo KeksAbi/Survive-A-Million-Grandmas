@@ -65,11 +65,12 @@ local function getMuzzlePosition(): Vector3?
 	return head and head.Position
 end
 
--- First person = the camera is (almost) inside the head. Roblox then locks the mouse to the screen center.
+-- First person = fully zoomed in: the camera sits on its focus point. (Measuring the distance to the head
+-- failed when looking down: the camera then moves a little away from the head.)
 local function isFirstPerson(): boolean
 	local character = player.Character
-	local head = character and character:FindFirstChild("Head")
-	return head ~= nil and (camera.CFrame.Position - head.Position).Magnitude < 1.5
+	return character ~= nil and character:FindFirstChild("Head") ~= nil
+		and (camera.CFrame.Position - camera.Focus.Position).Magnitude < 1
 end
 
 -- Phones/tablets without a mouse: aim through the screen center (the camera is turned by dragging).

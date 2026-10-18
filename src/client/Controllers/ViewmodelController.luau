@@ -18,13 +18,15 @@ local camera = workspace.CurrentCamera
 
 local ViewmodelController = {}
 
--- Where the grip sits relative to the camera (right, down, forward). Long guns sit a bit lower and further out.
+-- Where the grip sits relative to the camera (right, down, forward) and how big the gun is drawn, so it
+-- stays a corner of the screen and never covers the view.
 local HOLD = {
-	Pistol = CFrame.new(0.95, -0.85, -1.9),
-	Shotgun = CFrame.new(0.85, -0.85, -2.0),
-	AssaultRifle = CFrame.new(0.85, -0.85, -2.0),
+	Pistol = CFrame.new(0.55, -0.55, -1.5),
+	Shotgun = CFrame.new(0.5, -0.55, -1.45),
+	AssaultRifle = CFrame.new(0.5, -0.55, -1.45),
 }
-local DEFAULT_HOLD = CFrame.new(0.9, -0.85, -2.0)
+local DEFAULT_HOLD = CFrame.new(0.5, -0.55, -1.45)
+local VIEW_SCALE = { Pistol = 0.5, Shotgun = 0.42, AssaultRifle = 0.42 }
 
 local model: Model? = nil
 local modelKey = ""
@@ -49,7 +51,8 @@ local function isFirstPerson(): (boolean, Humanoid?)
 	if not head or not humanoid or humanoid.Health <= 0 or HUDController.CutsceneActive then
 		return false, nil
 	end
-	return (camera.CFrame.Position - head.Position).Magnitude < 1.2, humanoid
+	-- fully zoomed in: the camera sits on its focus point (works when looking down too)
+	return (camera.CFrame.Position - camera.Focus.Position).Magnitude < 1, humanoid
 end
 
 local function rebuild(weaponId: string, skinId: string)
@@ -59,6 +62,7 @@ local function rebuild(weaponId: string, skinId: string)
 		return
 	end
 	local gun = GunModels.Build(weapon, skinId)
+	gun:ScaleTo(VIEW_SCALE[weaponId] or 0.45)
 	for _, part in gun:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = true
