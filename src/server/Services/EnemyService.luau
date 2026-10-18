@@ -175,6 +175,8 @@ function EnemyService.Damage(enemyId: number, amount: number, attacker: Player?)
 	end
 	if enemy.IsBoss then
 		publishBoss(enemy)
+	else
+		enemy.Model:SetAttribute("HealthRatio", enemy.Health / enemy.MaxHealth) -- client health bar
 	end
 	return true, false
 end

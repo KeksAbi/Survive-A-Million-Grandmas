@@ -15,6 +15,12 @@ return {
 		MaxZoom = 50,
 	},
 
+	Mobile = {
+		-- Touch devices aim through the screen center; shots bend toward an enemy within this cone.
+		AimAssistDegrees = 12,
+		AimAssistRange = 120,
+	},
+
 	Player = {
 		MaxHealth = 100,
 		StartingCash = 40,
@@ -66,6 +72,27 @@ return {
 		FlightTime = 0.8, -- seconds in the air (then it sits and blinks until the fuse ends)
 		MaxThrowDistance = 70,
 		Cooldown = 0.6,
+	},
+
+	-- Sound asset ids ("rbxassetid://123..."). Empty = silent. Pick sounds in the Creator Store
+	-- (Toolbox > Audio), check they are free to use, and paste the ids here. Music: instrumental only.
+	Sounds = {
+		Fire_Pistol = "",
+		Fire_Shotgun = "",
+		Fire_AssaultRifle = "",
+		Hit = "",
+		GrandmaPoof = "",
+		Explosion = "",
+		Stomp = "",
+		Reload = "",
+		WaveStart = "", -- notification kind "info"
+		WaveComplete = "", -- "good"
+		BossIncoming = "", -- "boss"
+		Victory = "", -- "gold"
+		Error = "", -- "bad" (game over, not enough cash)
+		Music = "", -- looping background music
+		Volume = 0.6,
+		MusicVolume = 0.25,
 	},
 
 	Map = {

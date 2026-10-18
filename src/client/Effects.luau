@@ -3,8 +3,12 @@
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 
 local Effects = {}
 
@@ -158,6 +162,17 @@ function Effects.Grenade(from: Vector3, landing: Vector3, flightTime: number, fu
 	Debris:AddItem(grenade, fuse)
 end
 
+-- Short camera shake (a few frames of random tilt).
+function Effects.Shake(strength: number)
+	local camera = workspace.CurrentCamera
+	for i = 1, 6 do
+		local power = strength * (1 - i / 7)
+		camera.CFrame *= CFrame.Angles(math.rad(math.random(-10, 10) / 10 * power), math.rad(math.random(-10, 10) / 10 * power), 0)
+		task.wait()
+	end
+end
+
+-- Shake that gets weaker with distance from `position` (nothing beyond 60 studs).
 local function shakeCamera(position: Vector3, strength: number)
 	local character = Players.LocalPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -165,14 +180,8 @@ local function shakeCamera(position: Vector3, strength: number)
 		return
 	end
 	local closeness = 1 - math.clamp((root.Position - position).Magnitude / 60, 0, 1)
-	if closeness <= 0 then
-		return
-	end
-	local camera = workspace.CurrentCamera
-	for i = 1, 6 do
-		local power = strength * closeness * (1 - i / 7)
-		camera.CFrame *= CFrame.Angles(math.rad(math.random(-10, 10) / 10 * power), math.rad(math.random(-10, 10) / 10 * power), 0)
-		task.wait()
+	if closeness > 0 then
+		Effects.Shake(strength * closeness)
 	end
 end
 
@@ -221,7 +230,42 @@ function Effects.Stomp(position: Vector3, radius: number)
 	task.spawn(shakeCamera, position, 2.5)
 end
 
--- Sound hook: plug SoundIds in later (Phase 5). Kept as a no-op so callers don't change.
-function Effects.PlaySound(_name: string, _position: Vector3?) end
+-- Plays Config.Sounds[name]. With a position the sound is 3D (heard near that spot), otherwise 2D.
+-- Silent when the id is empty, so missing sounds never break anything.
+function Effects.PlaySound(name: string, position: Vector3?)
+	local id = Config.Sounds[name]
+	if type(id) ~= "string" or id == "" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = id
+	sound.Volume = Config.Sounds.Volume
+	if position then
+		local anchor = fxPart(Vector3.new(0.1, 0.1, 0.1), CFrame.new(position), Color3.new(1, 1, 1))
+		anchor.Transparency = 1
+		sound.RollOffMaxDistance = 150
+		sound.Parent = anchor
+		Debris:AddItem(anchor, 6)
+	else
+		sound.Parent = SoundService
+		Debris:AddItem(sound, 6)
+	end
+	sound:Play()
+end
+
+-- Looping background music (Config.Sounds.Music). Call once.
+function Effects.StartMusic()
+	local id = Config.Sounds.Music
+	if id == "" then
+		return
+	end
+	local music = Instance.new("Sound")
+	music.Name = "Music"
+	music.SoundId = id
+	music.Looped = true
+	music.Volume = Config.Sounds.MusicVolume
+	music.Parent = SoundService
+	music:Play()
+end
 
 return Effects

@@ -38,7 +38,9 @@ Client (`src/client`): `InputController` (keys -> signals), `CameraController` (
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
 fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in code, results screen, boss bar; exports `Kit` and
 `CreateContainer` for other panels), `ShopController` (shop panel left, grenade panel right),
-`WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `SpectateController` (follow a teammate
+`WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `MobileController` (touch
+buttons FIRE/R/G; touch aims through the screen center with aim assist), `EnemyBarController` (health bars over
+damaged grandmas from the `HealthRatio` attribute), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow
@@ -97,9 +99,12 @@ Report honestly what was tested and what was not.
   completion bonus, stay-dead-until-next-wave + spectating, mid-wave join, victory/defeat results, auto restart.
 - [x] Phase 3 playtested by Alex: waves, countdown OK. Controls changed on request: normal Roblox camera
   zoomed out (first person when fully zoomed in), crosshair = mouse cursor, body not turned to the cursor.
-- [x] Phase 4 (written, NOT yet tested in Studio): shop (left panel, keys 1-3 buy/equip), grenades (G, $60,
+- [x] Phase 4 playtested by Alex: works. Hotbar shows only bought guns; reload timer added.
+- [x] Phase 5 (written, NOT yet tested in Studio): mobile buttons + center aim + aim assist, tappable hotbar,
+  sound system (`Config.Sounds`, ids still empty), music hook, enemy health bars, boss entrance flash + shake,
+  low-health red edges, results pop-in, map details (school bus, crosswalks, flower beds, more lamps).
+- [x] Phase 4: shop (left panel, keys 1-3 buy/equip), grenades (G, $60,
   max 5), Slipper Grandma (ranged slipper arcs), Scooter Grandma, MEGA GRANDMA (stomp + boss bars).
-- [ ] Phase 5 Polish: full HUD (shop left, grenade right), boss bar, mobile controls, sounds, map polish.
 - [ ] Phase 6 DataStore stats (DataService), leaderboard, gamepasses/products (PurchaseService).
 - [ ] Phase 7 Testing and optimization.
 
@@ -107,8 +112,8 @@ Report honestly what was tested and what was not.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:
   keep arena props small and round-ish; long walls or narrow corridors would trap them.
-- No mobile fire/aim buttons yet (Phase 5). PC first.
-- No sounds yet: `Effects.PlaySound` is a hook.
+- Mobile controls are untested on a real phone (use Studio's device emulator first).
+- Sounds: `Config.Sounds` ids are empty until Alex picks audio in the Creator Store; the game is silent until then.
 - `Config.Debug.GiveAllWeapons` (false): set true to own every gun for testing.
 - In first person the own character (and gun) is hidden by Roblox; there is no viewmodel yet.
 

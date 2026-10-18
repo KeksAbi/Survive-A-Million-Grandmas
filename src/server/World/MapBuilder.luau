@@ -237,6 +237,55 @@ local function buildGroundAndRoads(map: Folder)
 	end
 end
 
+-- Yellow school bus (scenery outside the fence).
+local function schoolBus(parent: Instance, cframe: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "SchoolBus"
+	local yellow = Color3.fromRGB(255, 200, 30)
+	local black = Color3.fromRGB(30, 30, 35)
+	block(model, "Body", Vector3.new(24, 7, 7.5), cframe * CFrame.new(0, 5, 0), yellow)
+	block(model, "Hood", Vector3.new(4, 4, 7), cframe * CFrame.new(13.5, 3.5, 0), yellow)
+	block(model, "Roof", Vector3.new(24.4, 0.6, 7.9), cframe * CFrame.new(0, 8.7, 0), Color3.fromRGB(245, 245, 240))
+	block(model, "StripeL", Vector3.new(24.2, 0.5, 0.2), cframe * CFrame.new(0, 3.2, -3.8), black)
+	block(model, "StripeR", Vector3.new(24.2, 0.5, 0.2), cframe * CFrame.new(0, 3.2, 3.8), black)
+	for i = -4, 4 do
+		block(model, "WindowL", Vector3.new(2, 2, 0.2), cframe * CFrame.new(i * 2.5, 6.3, -3.8), COLORS.Window, Enum.Material.Glass)
+		block(model, "WindowR", Vector3.new(2, 2, 0.2), cframe * CFrame.new(i * 2.5, 6.3, 3.8), COLORS.Window, Enum.Material.Glass)
+	end
+	block(model, "Windshield", Vector3.new(0.2, 2.6, 6.4), cframe * CFrame.new(12.1, 6.4, 0), COLORS.Window, Enum.Material.Glass)
+	for _, x in { -8, 9 } do
+		for _, z in { -3.6, 3.6 } do
+			local wheel = block(model, "Wheel", Vector3.new(1, 3, 3), cframe * CFrame.new(x, 1.5, z), black)
+			wheel.Shape = Enum.PartType.Cylinder
+			wheel.CFrame = cframe * CFrame.new(x, 1.5, z) * CFrame.Angles(0, math.rad(90), 0)
+		end
+	end
+	model.Parent = parent
+end
+
+-- Round flower bed: soil disc with a ring of colorful blossoms (flat, nothing to walk around).
+local function flowerBed(parent: Instance, position: Vector3)
+	local soil = cylinder(parent, "FlowerSoil", 0.5, 7, position, Color3.fromRGB(110, 75, 45))
+	soil.CanCollide = false
+	local colors = { Color3.fromRGB(255, 90, 130), Color3.fromRGB(255, 220, 60), Color3.fromRGB(180, 110, 255), Color3.fromRGB(255, 255, 255) }
+	for i = 1, 10 do
+		local angle = i / 10 * math.pi * 2
+		local blossom = ball(parent, "Flower", 1, position + Vector3.new(math.cos(angle) * 2.4, 0.9, math.sin(angle) * 2.4), colors[i % #colors + 1])
+		blossom.CanCollide = false
+	end
+	ball(parent, "FlowerCenter", 1.4, position + Vector3.new(0, 1, 0), colors[2]).CanCollide = false
+end
+
+-- White zebra stripes across the ring road where a park path meets it.
+local function crosswalk(parent: Instance, center: Vector3, alongX: boolean)
+	for i = -2, 2 do
+		local offset = if alongX then Vector3.new(0, 0, i * 1.6) else Vector3.new(i * 1.6, 0, 0)
+		local size = if alongX then Vector3.new(15, 0.12, 0.8) else Vector3.new(0.8, 0.12, 15)
+		local stripe = block(parent, "Crosswalk", size, CFrame.new(center + offset + Vector3.new(0, 0.12, 0)), COLORS.White)
+		stripe.CanCollide = false
+	end
+end
+
 local function buildPark(map: Folder)
 	local park = folder(map, "Park")
 	-- fountain
@@ -261,10 +310,21 @@ local function buildPark(map: Folder)
 		bush(park, Vector3.new(quarter[1] * 28, 0, quarter[2] * 48))
 		bush(park, Vector3.new(quarter[1] * 50, 0, quarter[2] * 26))
 	end
-	-- lamps at the inner corners of the ring road
+	-- lamps at the inner corners of the ring road and along its outer side
 	for _, corner in { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } } do
 		lamp(park, Vector3.new(corner[1] * 64, 0, corner[2] * 64))
+		lamp(park, Vector3.new(corner[1] * 87, 0, corner[2] * 40))
+		lamp(park, Vector3.new(corner[1] * 40, 0, corner[2] * 87))
 	end
+	-- flower beds on the diagonals between the benches and the trees
+	for _, quarter in { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } } do
+		flowerBed(park, Vector3.new(quarter[1] * 22, 0, quarter[2] * 22))
+	end
+	-- crosswalks where the four park paths cross the ring road
+	crosswalk(park, Vector3.new(75, 0.05, 0), true)
+	crosswalk(park, Vector3.new(-75, 0.05, 0), true)
+	crosswalk(park, Vector3.new(0, 0.05, 75), false)
+	crosswalk(park, Vector3.new(0, 0.05, -75), false)
 end
 
 local function buildBoundary(map: Folder)
@@ -319,6 +379,7 @@ local function buildScenery(map: Folder)
 		house(scenery, Vector3.new(d + 22, 0, t)) -- east
 	end
 	retirementHome(scenery, Vector3.new(0, 0, -d - 35))
+	schoolBus(scenery, CFrame.new(70, 0, -d - 18))
 	-- trees scattered behind the houses and in the arena's outer lawn
 	for _ = 1, 40 do
 		local angle = rng:NextNumber(0, math.pi * 2)

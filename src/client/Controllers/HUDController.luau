@@ -14,6 +14,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
 
+local Effects = require(script.Parent.Parent.Effects)
+local InputController = require(script.Parent.InputController)
+
 local player = Players.LocalPlayer
 
 local HUDController = {}
@@ -252,6 +255,11 @@ local function buildBottom(root: Frame, ammoRoot: Frame)
 			BorderSizePixel = 0,
 			Parent = slot,
 		}, { corner(2) })
+		-- the whole slot is a button too (tap on mobile, click on PC) = same as pressing its number key
+		local tap = make("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 3, Parent = slot }) :: TextButton
+		tap.Activated:Connect(function()
+			InputController.SlotPressed:Fire(index)
+		end)
 		ui.Slots[weaponId] = { Frame = slot, Stroke = slotStroke }
 	end
 
@@ -369,6 +377,7 @@ local function refreshWeapon()
 	local reloading = player:GetAttribute("Reloading") == true
 	if reloading and not wasReloading and weapon then
 		startReloadTimer(weapon.ReloadTime)
+		Effects.PlaySound("Reload")
 	elseif not reloading and wasReloading then
 		stopReloadTimer()
 	end
@@ -571,6 +580,8 @@ function HUDController.ShowResults(result)
 		ui.ResultsValues[row.Key].Text = (row.Prefix or "") .. tostring(result[row.Key] or 0)
 	end
 	ui.Results.Visible = true
+	ui.Results.Position = UDim2.new(0.5, 0, 0.5, 60)
+	TweenService:Create(ui.Results, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.5) }):Play()
 	HUDController.ModalOpen = true
 
 	task.spawn(function()
@@ -620,6 +631,7 @@ local function watchHealth(character: Model)
 		TweenService:Create(ui.HealthFill, TweenInfo.new(0.15), { Size = UDim2.fromScale(ratio, 1) }):Play()
 		ui.HealthFill.BackgroundColor3 = if ratio > 0.5 then THEME.Green elseif ratio > 0.25 then THEME.Gold else THEME.Red
 		ui.HealthText.Text = tostring(math.ceil(humanoid.Health)) .. " / " .. tostring(humanoid.MaxHealth)
+		ui.LowHealth.Visible = ratio > 0 and ratio < 0.3
 	end
 	healthConnection = humanoid.HealthChanged:Connect(update)
 	update()
@@ -686,7 +698,31 @@ function HUDController.ShowHitmarker(killed: boolean)
 end
 
 local notifyToken = 0
+local NOTIFY_SOUNDS = {
+	info = "WaveStart",
+	good = "WaveComplete",
+	boss = "BossIncoming",
+	gold = "Victory",
+	bad = "Error",
+}
+
+-- Red full-screen flash + camera shake (boss entrance).
+local function bossFlash()
+	ui.Flash.Visible = true
+	for _ = 1, 2 do
+		ui.Flash.BackgroundTransparency = 0.45
+		TweenService:Create(ui.Flash, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+		task.spawn(Effects.Shake, 2)
+		task.wait(0.45)
+	end
+	ui.Flash.Visible = false
+end
+
 function HUDController.Notify(text: string, kind: string?)
+	Effects.PlaySound(NOTIFY_SOUNDS[kind or "info"] or "WaveStart")
+	if kind == "boss" then
+		task.spawn(bossFlash)
+	end
 	notifyToken += 1
 	local token = notifyToken
 	local color = NOTIFY_COLORS[kind or "info"] or THEME.Blue
@@ -725,6 +761,34 @@ function HUDController.Init()
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 
 	buildCountdown(root) -- first, so it sits under everything else
+
+	-- full-screen red flash (boss entrance)
+	ui.Flash = make("Frame", { Name = "Flash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = THEME.Red, BackgroundTransparency = 1, ZIndex = 0, Visible = false, Parent = root })
+
+	-- low health: red glow fading in from all four screen edges, pulsing
+	local lowHealth = make("Frame", { Name = "LowHealth", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 0, Visible = false, Parent = root })
+	for _, edge in {
+		{ UDim2.fromScale(1, 0.18), UDim2.fromScale(0, 0), 90 },
+		{ UDim2.fromScale(1, 0.18), UDim2.fromScale(0, 0.82), -90 },
+		{ UDim2.fromScale(0.12, 1), UDim2.fromScale(0, 0), 0 },
+		{ UDim2.fromScale(0.12, 1), UDim2.fromScale(0.88, 0), 180 },
+	} do
+		local frame = make("Frame", { Size = edge[1], Position = edge[2], BackgroundColor3 = Color3.fromRGB(220, 0, 0), BorderSizePixel = 0, ZIndex = 0, Parent = lowHealth })
+		make("UIGradient", { Rotation = edge[3], Transparency = NumberSequence.new(0.35, 1), Parent = frame })
+	end
+	ui.LowHealth = lowHealth
+	task.spawn(function()
+		while true do
+			if lowHealth.Visible then
+				for _, frame in lowHealth:GetChildren() do
+					local gradient = frame:FindFirstChildOfClass("UIGradient")
+					local strong = math.floor(os.clock() * 2) % 2 == 0
+					gradient.Transparency = NumberSequence.new(if strong then 0.25 else 0.5, 1)
+				end
+			end
+			task.wait(0.5)
+		end
+	end)
 	buildCrosshair(root)
 	buildWaveBanner(top)
 	buildBottom(bottom, ammoRoot)

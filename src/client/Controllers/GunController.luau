@@ -62,9 +62,42 @@ local function isFirstPerson(): boolean
 	return head ~= nil and (camera.CFrame.Position - head.Position).Magnitude < 1.5
 end
 
--- Screen point to aim through: the center in first person, otherwise the mouse cursor.
+-- Phones/tablets without a mouse: aim through the screen center (the camera is turned by dragging).
+local function isTouchAiming(): boolean
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
+
+-- Touch aim assist: the enemy closest to the aim direction (flat angle) within the assist cone.
+local function findAssistTarget(origin: Vector3, direction: Vector3): Vector3?
+	local enemies = workspace:FindFirstChild("Enemies")
+	if not enemies then
+		return nil
+	end
+	local flatDir = Vector3.new(direction.X, 0, direction.Z)
+	if flatDir.Magnitude < 0.01 then
+		return nil
+	end
+	flatDir = flatDir.Unit
+	local best, bestAngle = nil, math.rad(Config.Mobile.AimAssistDegrees)
+	for _, model in enemies:GetChildren() do
+		local root = model:FindFirstChild("Root")
+		if root then
+			local offset = root.Position - origin
+			local flat = Vector3.new(offset.X, 0, offset.Z)
+			if flat.Magnitude > 0.5 and flat.Magnitude <= Config.Mobile.AimAssistRange then
+				local angle = math.acos(math.clamp(flatDir:Dot(flat.Unit), -1, 1))
+				if angle < bestAngle then
+					best, bestAngle = root.Position, angle
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- Screen point to aim through: the center in first person and on touch devices, otherwise the mouse cursor.
 local function getAimScreenPoint(): Vector2
-	if isFirstPerson() then
+	if isFirstPerson() or isTouchAiming() then
 		return camera.ViewportSize / 2
 	end
 	return UserInputService:GetMouseLocation()
@@ -132,6 +165,13 @@ local function tryFire()
 		direction = if root then root.CFrame.LookVector else camera.CFrame.LookVector -- cursor on yourself
 	end
 	direction = direction.Unit
+	if isTouchAiming() then
+		local assisted = findAssistTarget(origin, direction)
+		if assisted then
+			aimPoint = assisted
+			direction = (assisted - origin).Unit
+		end
+	end
 	fireRemote:FireServer(origin, direction)
 
 	-- instant local feedback (cosmetic; the server decides real hits)
