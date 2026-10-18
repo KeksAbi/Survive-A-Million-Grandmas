@@ -23,8 +23,11 @@ Server services (`src/server/Services`):
 - `PlayerService`: character setup, spawn shield, spawning (`CharacterAutoLoads` is off), `RespawnAndHealAll()`,
   `GetLivingPlayers()`, signals `CharacterSpawned`, `PlayerDied`, `PlayerJoined`.
 - `EconomyService`: per-player match cash (`Reset`, `AddCash`, `TrySpend`). Replicated as player attribute `Cash`.
-- `EnemyService`: spawning, ONE central AI loop for all enemies, damage, kills (`EnemyKilled` signal), `ClearAll`.
+- `EnemyService`: spawning, ONE central AI loop for all enemies (behaviors Melee / Ranged slipper throw /
+  Boss stomp), damage, `DamageInRadius`, boss tracking (`MarkBoss`, workspace `Boss*` attrs), kills, `ClearAll`.
 - `CombatService`: weapon ownership, equipped weapon, ammo, reload, fire-rate, server raycasts, damage.
+- `ShopService`: `Purchase` remote: weapons (WeaponDefinitions.Cost) and grenades; buys auto-equip.
+- `GrenadeService`: grenade count (`Grenades` attr), `ThrowGrenade` remote, server-side landing + explosion.
 - `WaveService`: the single match loop: Waiting -> (Intermission -> Wave) x10 -> Victory/Defeat -> results
   -> new match. Spawns waves gradually, scales by player count, bonuses, respawns, `MatchResult`, `MatchEnded` signal.
 
@@ -33,7 +36,9 @@ World (`src/server/World`): `MapBuilder` (whole map from primitives at server st
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
-fire toward the cursor, effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
+fire toward the cursor, effects, G = grenade), `HUDController` (all UI built in code, results screen, boss bar; exports `Kit` and
+`CreateContainer` for other panels), `ShopController` (shop panel left, grenade panel right),
+`WorldFxController` (plays WorldFx: slippers, grenades, explosions, stomps), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow
@@ -72,8 +77,9 @@ Check before pushing: `rojo build -o build/test.rbxl` (must succeed) and, if ava
 ## How to add things
 - **Weapon:** add an entry to `WeaponDefinitions.Weapons` (+ `Order` for its hotbar slot). Combat, HUD
   slot, gun model and ammo work automatically. The shop sells it once ShopController exists.
-- **Enemy:** add data to `EnemyDefinitions`, add a builder to `BUILDERS` in `EnemyFactory`. New behaviors
-  (ranged, boss) are branches in the `EnemyService` step loop keyed on `def.Behavior`.
+- **Enemy:** add data to `EnemyDefinitions` (Behavior Melee/Ranged/Boss, Radius, optional Scale/HitboxSize),
+  add a builder to `BUILDERS` in `EnemyFactory` (`buildGrandma` takes colors, Scale, Held item...).
+  A new behavior is a branch in the `EnemyService` step loop keyed on `def.Behavior`.
 - **Wave:** add a row to `WaveDefinitions` (enemy counts for one player, optional `Boss`, spawn interval).
   Scaling numbers are in `Config.Waves`. Enemy types not in `EnemyDefinitions` fall back to NormalGrandma.
 
@@ -89,7 +95,10 @@ Report honestly what was tested and what was not.
   with lag tolerance, ammo/reload, kills, cash, HUD (cash, health, ammo, slots, crosshair, hitmarker, damage numbers).
 - [x] Phase 3 Waves (written, NOT yet tested in Studio): WaveService, 10 waves, countdowns, player scaling,
   completion bonus, stay-dead-until-next-wave + spectating, mid-wave join, victory/defeat results, auto restart.
-- [ ] Phase 4 Shop (ShopController + purchase remote), Slipper/Scooter grandmas, grenade, MEGA GRANDMA.
+- [x] Phase 3 playtested by Alex: waves, countdown OK. Controls changed on request: normal Roblox camera
+  zoomed out (first person when fully zoomed in), crosshair = mouse cursor, body not turned to the cursor.
+- [x] Phase 4 (written, NOT yet tested in Studio): shop (left panel, keys 1-3 buy/equip), grenades (G, $60,
+  max 5), Slipper Grandma (ranged slipper arcs), Scooter Grandma, MEGA GRANDMA (stomp + boss bars).
 - [ ] Phase 5 Polish: full HUD (shop left, grenade right), boss bar, mobile controls, sounds, map polish.
 - [ ] Phase 6 DataStore stats (DataService), leaderboard, gamepasses/products (PurchaseService).
 - [ ] Phase 7 Testing and optimization.
@@ -100,8 +109,8 @@ Report honestly what was tested and what was not.
   keep arena props small and round-ish; long walls or narrow corridors would trap them.
 - No mobile fire/aim buttons yet (Phase 5). PC first.
 - No sounds yet: `Effects.PlaySound` is a hook.
-- `Config.Debug.GiveAllWeapons = true`: everyone owns all guns until the shop exists (Phase 4).
-- Slipper/Scooter grandmas fall back to Normal Grandmas and the MEGA GRANDMA is skipped until Phase 4.
+- `Config.Debug.GiveAllWeapons` (false): set true to own every gun for testing.
+- In first person the own character (and gun) is hidden by Roblox; there is no viewmodel yet.
 
 ## Future (after MVP, only on request)
 More grandma types (flying, exploding, ninja, zombie), boss variants, barricades, turrets, airstrike,

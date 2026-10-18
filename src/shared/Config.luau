@@ -3,8 +3,8 @@
 
 return {
 	Debug = {
-		-- Everyone owns all weapons, so they can be tested before the shop exists (Phase 4 sets this false).
-		GiveAllWeapons = true,
+		-- true = everyone owns all weapons from the start (testing only; the shop sells them normally).
+		GiveAllWeapons = false,
 	},
 
 	Camera = {
@@ -39,8 +39,8 @@ return {
 	Enemies = {
 		MaxActive = 60, -- hard cap of simultaneously alive enemies
 		UpdateRate = 20, -- movement/AI ticks per second (one loop for ALL enemies)
-		SeparationRadius = 2.2, -- enemies closer than this push each other apart
-		BodyRadius = 1.3, -- for walking around map obstacles (fountain, benches, trees...)
+		-- Body size per type is EnemyDefinitions.Radius (used for spacing, obstacles and hit tolerance).
+		ObstacleMargin = 0.2, -- extra gap kept to map obstacles
 		BobHeight = 0.25, -- cosmetic walking bob
 	},
 
@@ -55,6 +55,17 @@ return {
 		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
 		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.
 		HitTolerance = 1.2,
+	},
+
+	Grenade = {
+		Cost = 60,
+		MaxCarried = 5,
+		Damage = 100,
+		Radius = 15,
+		Fuse = 2, -- seconds from throw to explosion
+		FlightTime = 0.8, -- seconds in the air (then it sits and blinks until the fuse ends)
+		MaxThrowDistance = 70,
+		Cooldown = 0.6,
 	},
 
 	Map = {

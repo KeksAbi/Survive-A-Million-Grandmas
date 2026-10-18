@@ -1,7 +1,8 @@
 --!nonstrict
 -- Owns every enemy. ONE Heartbeat loop moves all enemies at Config.Enemies.UpdateRate:
 -- no Humanoids, no pathfinding, no per-enemy scripts. Enemies walk straight at the nearest living
--- player (the arena is open), push apart from each other, and hit when in range.
+-- player (the arena is open), keep apart from each other, slide around map obstacles, and attack.
+-- Behaviors (EnemyDefinitions.Behavior): "Melee", "Ranged" (slipper throw), "Boss" (melee + stomp).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,6 +10,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local EnemyDefinitions = require(Shared.EnemyDefinitions)
 
@@ -31,18 +33,42 @@ type Enemy = {
 	Health: number,
 	MaxHealth: number,
 	Alive: boolean,
+	IsBoss: boolean,
 	Position: Vector3, -- ground position (Y = 0)
 	Facing: Vector3,
 	AttackReadyAt: number?,
+	NextStomp: number?,
+	Stomping: boolean,
 	Phase: number, -- random offset for the walking bob
+	HealthFill: Frame?, -- boss overhead bar
 }
 
 local enemies: { [number]: Enemy } = {}
 local activeCount = 0
 local nextId = 1
 
+local function worldFx(...)
+	Remotes.Get("WorldFx"):FireAllClients(...)
+end
+
 local function publishCount()
 	workspace:SetAttribute("EnemiesAlive", activeCount)
+end
+
+-- boss health replicates as workspace attributes (HUD bar) + an overhead bar on the model
+local function publishBoss(enemy: Enemy?)
+	if enemy then
+		workspace:SetAttribute("BossName", enemy.Def.Name)
+		workspace:SetAttribute("BossHealth", math.max(0, math.ceil(enemy.Health)))
+		workspace:SetAttribute("BossMaxHealth", enemy.MaxHealth)
+		if enemy.HealthFill then
+			enemy.HealthFill.Size = UDim2.fromScale(math.clamp(enemy.Health / enemy.MaxHealth, 0, 1), 1)
+		end
+	else
+		workspace:SetAttribute("BossName", nil)
+		workspace:SetAttribute("BossHealth", nil)
+		workspace:SetAttribute("BossMaxHealth", nil)
+	end
 end
 
 -- Spawns one enemy at a ground position. Returns nil when the MaxActive cap is reached.
@@ -75,10 +101,14 @@ function EnemyService.Spawn(typeName: string, position: Vector3, healthScale: nu
 		Health = health,
 		MaxHealth = health,
 		Alive = true,
+		IsBoss = false,
 		Position = ground,
 		Facing = facing,
 		AttackReadyAt = nil,
+		NextStomp = nil,
+		Stomping = false,
 		Phase = math.random() * math.pi * 2,
+		HealthFill = nil,
 	}
 	enemies[id] = enemy
 	activeCount += 1
@@ -86,11 +116,44 @@ function EnemyService.Spawn(typeName: string, position: Vector3, healthScale: nu
 	return enemy
 end
 
+-- Turns an enemy into the wave's boss: HUD boss bar + a health bar above its head.
+function EnemyService.MarkBoss(enemy: Enemy)
+	enemy.IsBoss = true
+	enemy.Model:SetAttribute("Boss", true)
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "BossBar"
+	gui.Size = UDim2.fromOffset(220, 26)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, enemy.Def.RootHeight + 3, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 400
+	local back = Instance.new("Frame")
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+	back.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = back
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = Color3.fromRGB(235, 45, 45)
+	fill.BorderSizePixel = 0
+	fill.Parent = back
+	corner:Clone().Parent = fill
+	gui.Parent = enemy.Root
+	enemy.HealthFill = fill
+
+	publishBoss(enemy)
+end
+
 local function kill(enemy: Enemy, killer: Player?)
 	enemy.Alive = false
 	enemies[enemy.Id] = nil
 	activeCount -= 1
 	publishCount()
+	if enemy.IsBoss then
+		publishBoss(nil)
+	end
 	enemy.Model:Destroy()
 
 	if killer and killer.Parent == Players then
@@ -110,7 +173,36 @@ function EnemyService.Damage(enemyId: number, amount: number, attacker: Player?)
 		kill(enemy, attacker)
 		return true, true
 	end
+	if enemy.IsBoss then
+		publishBoss(enemy)
+	end
 	return true, false
+end
+
+-- Damages every enemy whose body is within `radius` (flat distance) of `center`.
+-- Returns one { Position, Damage, Killed } per enemy hit (for the attacker's hit feedback).
+function EnemyService.DamageInRadius(center: Vector3, radius: number, amount: number, attacker: Player?): { any }
+	local inside = {}
+	for id, enemy in enemies do
+		if enemy.Alive then
+			local offset = enemy.Position - Vector3.new(center.X, 0, center.Z)
+			if offset.Magnitude <= radius + enemy.Def.Radius then
+				table.insert(inside, id)
+			end
+		end
+	end
+	local results = {}
+	for _, id in inside do
+		local enemy = enemies[id]
+		if enemy then
+			local position = enemy.Position + Vector3.new(0, enemy.Def.RootHeight, 0)
+			local hit, killed = EnemyService.Damage(id, amount, attacker)
+			if hit then
+				table.insert(results, { Position = position, Damage = amount, Killed = killed })
+			end
+		end
+	end
+	return results
 end
 
 function EnemyService.Get(enemyId: number): Enemy?
@@ -138,8 +230,8 @@ function EnemyService.FindEnemyNearRay(origin: Vector3, direction: Vector3, maxD
 				local point = origin + direction * t
 				local offset = center - point
 				local flat = math.sqrt(offset.X * offset.X + offset.Z * offset.Z)
-				local halfHeight = enemy.Def.RootHeight + 0.4
-				if flat <= 1.4 + tolerance and math.abs(offset.Y) <= halfHeight + tolerance then
+				local halfHeight = enemy.Def.RootHeight + 0.4 * (enemy.Def.Scale or 1)
+				if flat <= enemy.Def.Radius + 0.3 + tolerance and math.abs(offset.Y) <= halfHeight + tolerance then
 					bestId, bestT, bestPoint = id, t, point
 				end
 			end
@@ -161,12 +253,13 @@ function EnemyService.ClearAll()
 	table.clear(enemies)
 	activeCount = 0
 	publishCount()
+	publishBoss(nil)
 end
 
 -- Keeps `position` out of every obstacle circle. When the target is behind an obstacle, adds a sideways
 -- step so the enemy slides around it instead of pressing into its front.
 local function avoidObstacles(enemy: Enemy, position: Vector3, toTarget: Vector3, stepDistance: number): Vector3
-	local bodyRadius = Config.Enemies.BodyRadius
+	local bodyRadius = enemy.Def.Radius + Config.Enemies.ObstacleMargin
 	for _, obstacle in MapBuilder.GetObstacles() do
 		local away = position - obstacle.Position
 		local minDistance = obstacle.Radius + bodyRadius
@@ -185,6 +278,46 @@ local function avoidObstacles(enemy: Enemy, position: Vector3, toTarget: Vector3
 		end
 	end
 	return position
+end
+
+-- Ranged attack: a slipper flies to where the target stands now; it hits if they are still there on landing.
+local function throwSlipper(enemy: Enemy, target)
+	local def = enemy.Def
+	local from = enemy.Position + Vector3.new(0, def.RootHeight + 1, 0)
+	local landing = target.Root.Position
+	local flightTime = math.max(0.25, (landing - from).Magnitude / def.ProjectileSpeed)
+	worldFx("Slipper", from, landing, flightTime)
+	task.delay(flightTime, function()
+		for _, entry in PlayerService.GetLivingPlayers() do
+			local offset = entry.Root.Position - landing
+			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= def.ProjectileHitRadius and math.abs(offset.Y) < 6 then
+				entry.Humanoid:TakeDamage(def.Damage)
+				break -- one slipper, one victim
+			end
+		end
+	end)
+end
+
+-- Boss stomp: red warning circle for StompWindup seconds, then damage to every player inside.
+local function stomp(enemy: Enemy)
+	local def = enemy.Def
+	enemy.Stomping = true
+	local center = enemy.Position
+	worldFx("StompWarning", center, def.StompRadius, def.StompWindup)
+	task.delay(def.StompWindup, function()
+		enemy.Stomping = false
+		enemy.NextStomp = os.clock() + def.StompCooldown
+		if not enemy.Alive then
+			return
+		end
+		worldFx("Stomp", center, def.StompRadius)
+		for _, entry in PlayerService.GetLivingPlayers() do
+			local offset = entry.Root.Position - center
+			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= def.StompRadius then
+				entry.Humanoid:TakeDamage(def.StompDamage)
+			end
+		end
+	end)
 end
 
 local accumulator = 0
@@ -207,9 +340,8 @@ local function step(dt: number)
 
 	local now = os.clock()
 	local wall = Config.Map.WallDistance - 2
-	local separation = Config.Enemies.SeparationRadius
 
-	-- snapshot for separation
+	-- snapshot for spacing
 	local list = {}
 	for _, enemy in enemies do
 		table.insert(list, enemy)
@@ -220,6 +352,7 @@ local function step(dt: number)
 			continue
 		end
 		local def = enemy.Def
+		local behavior = def.Behavior
 		local pos = enemy.Position
 
 		-- nearest living player (flat distance)
@@ -234,22 +367,33 @@ local function step(dt: number)
 		local toTarget = target.Root.Position - pos
 		toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
 		local distance = math.sqrt(bestSq)
+		local towards = if distance > 0.01 then toTarget / distance else Vector3.zero
 
-		-- chase
+		-- movement
 		local move = Vector3.zero
-		local stopDistance = def.AttackRange * 0.75
-		if distance > stopDistance and distance > 0.01 then
-			move = toTarget.Unit * math.min(def.Speed * stepDt, distance - stopDistance)
+		local stepLength = def.Speed * stepDt
+		if behavior == "Ranged" then
+			if distance > def.PreferredRange then
+				move = towards * math.min(stepLength, distance - def.PreferredRange)
+			elseif distance < def.MinRange then
+				move = -towards * stepLength * 0.6 -- back off
+			end
+		elseif not enemy.Stomping then
+			local stopDistance = def.AttackRange * 0.75
+			if distance > stopDistance then
+				move = towards * math.min(stepLength, distance - stopDistance)
+			end
 		end
 
-		-- push apart from nearby enemies so they don't stack into one blob
+		-- keep apart from nearby enemies so they don't stack into one blob
 		local push = Vector3.zero
 		for j, other in list do
 			if j ~= i and other.Alive then
 				local away = pos - other.Position
 				local d = away.Magnitude
-				if d < separation and d > 0.001 then
-					push += away / d * (separation - d)
+				local minGap = def.Radius + other.Def.Radius
+				if d < minGap and d > 0.001 then
+					push += away / d * (minGap - d) * (other.Def.Radius / def.Radius) -- small ones yield to big ones
 				end
 			end
 		end
@@ -257,31 +401,43 @@ local function step(dt: number)
 			move += push * math.min(1, 6 * stepDt)
 		end
 
-		local newPos = avoidObstacles(enemy, pos + move, toTarget, def.Speed * stepDt)
+		local newPos = avoidObstacles(enemy, pos + move, toTarget, stepLength)
 		newPos = Vector3.new(math.clamp(newPos.X, -wall, wall), 0, math.clamp(newPos.Z, -wall, wall))
 		local moved = (newPos - pos).Magnitude > 0.001
 		enemy.Position = newPos
 		if distance > 0.01 then
-			enemy.Facing = toTarget.Unit
+			enemy.Facing = towards
 		end
 
-		-- attack (short wind-up when first reaching the player, then the cooldown)
+		-- attacks (a short wind-up when first in range, then the cooldown)
 		if distance <= def.AttackRange then
 			if enemy.AttackReadyAt == nil then
-				enemy.AttackReadyAt = now + 0.35
-			elseif now >= enemy.AttackReadyAt then
-				target.Humanoid:TakeDamage(def.Damage)
+				enemy.AttackReadyAt = now + (if behavior == "Ranged" then 0.5 + math.random() else 0.35)
+			elseif now >= enemy.AttackReadyAt and not enemy.Stomping then
+				if behavior == "Ranged" then
+					throwSlipper(enemy, target)
+				else
+					target.Humanoid:TakeDamage(def.Damage)
+				end
 				enemy.AttackReadyAt = now + def.AttackCooldown
 			end
 		else
 			enemy.AttackReadyAt = nil
 		end
+		if behavior == "Boss" and not enemy.Stomping then
+			enemy.NextStomp = enemy.NextStomp or (now + def.StompCooldown * 0.5)
+			if now >= enemy.NextStomp and distance <= def.StompRadius then
+				stomp(enemy)
+			end
+		end
 
-		-- write the root (welds move the rest); cosmetic waddle while walking
+		-- write the root (welds move the rest); cosmetic waddle while walking, shiver while stomping
 		local bob, sway = 0, 0
-		if moved then
-			local t = now * 9 + enemy.Phase
-			bob = math.abs(math.sin(t)) * Config.Enemies.BobHeight
+		local t = now * 9 + enemy.Phase
+		if enemy.Stomping then
+			bob = math.abs(math.sin(now * 30)) * 0.6
+		elseif moved then
+			bob = math.abs(math.sin(t)) * Config.Enemies.BobHeight * (def.Scale or 1)
 			sway = math.sin(t) * 0.08
 		end
 		local rootPos = newPos + Vector3.new(0, def.RootHeight + bob, 0)

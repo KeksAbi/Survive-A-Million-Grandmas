@@ -197,11 +197,23 @@ function GunController.Init()
 		end
 		if player:GetAttribute("Owns" .. weaponId) then
 			equipRemote:FireServer(weaponId)
-			nextFire = os.clock() + Config.Combat.SwapDelay -- same swap delay the server enforces
 		else
-			local weapon = WeaponData.Weapons[weaponId]
-			HUDController.Notify(string.upper(weapon.Name) .. " COSTS $" .. tostring(weapon.Cost), "bad")
+			Remotes.Get("Purchase"):FireServer(weaponId) -- number key on an unowned gun = buy it (server checks cash)
 		end
+		nextFire = os.clock() + Config.Combat.SwapDelay -- same swap delay the server enforces
+	end)
+
+	-- G: throw a grenade at the ground point under the crosshair (server buys one if the bag is empty)
+	InputController.GrenadePressed:Connect(function()
+		if not getHumanoid() or HUDController.ModalOpen then
+			return
+		end
+		aimParams.FilterDescendantsInstances = { player.Character, Effects.Folder }
+		local screenPoint = getAimScreenPoint()
+		local ray = camera:ViewportPointToRay(screenPoint.X, screenPoint.Y)
+		local result = workspace:Raycast(ray.Origin, ray.Direction * 500, aimParams)
+		local target = if result then result.Position else ray.Origin + ray.Direction * 80
+		Remotes.Get("ThrowGrenade"):FireServer(target)
 	end)
 
 	-- automatic weapons keep firing while the trigger is held

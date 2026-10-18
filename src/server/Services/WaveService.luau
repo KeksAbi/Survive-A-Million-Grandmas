@@ -17,6 +17,7 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local CombatService = require(script.Parent.CombatService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemyService = require(script.Parent.EnemyService)
+local GrenadeService = require(script.Parent.GrenadeService)
 local PlayerService = require(script.Parent.PlayerService)
 
 local WaveService = {}
@@ -134,7 +135,7 @@ local function runWave(waveIndex: number): string
 				nextIndex += 1
 				nextSpawnAt = now + interval
 				if entry.Boss then
-					enemy.Model:SetAttribute("Boss", true)
+					EnemyService.MarkBoss(enemy)
 					notifyAll("MEGA GRANDMA INCOMING!", "boss")
 				end
 			else
@@ -169,6 +170,7 @@ local function resetMatch()
 	for _, player in Players:GetPlayers() do
 		EconomyService.Reset(player)
 		CombatService.ResetLoadout(player)
+		GrenadeService.Reset(player)
 	end
 	PlayerService.RespawnAndHealAll()
 end
@@ -230,9 +232,12 @@ function WaveService.Start()
 			notify(player, "ELIMINATED! BACK NEXT WAVE", "bad")
 		end
 	end)
-	EnemyService.EnemyKilled:Connect(function(_enemy, killer: Player?)
+	EnemyService.EnemyKilled:Connect(function(enemy, killer: Player?)
 		if state ~= "Wave" then
 			return
+		end
+		if enemy.IsBoss then
+			notifyAll("MEGA GRANDMA DEFEATED!", "gold")
 		end
 		waveKills += 1
 		teamKills += 1

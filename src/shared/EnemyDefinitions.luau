@@ -1,6 +1,9 @@
 --!strict
--- Enemy data. Add an entry here and (if it has a new look) a builder in server/World/EnemyFactory.luau.
--- Behavior: "Melee" = chase and hit in range. (Ranged / Boss behaviors are added in later phases.)
+-- Enemy data. Add an entry here and a builder in server/World/EnemyFactory.luau.
+-- Behaviors (EnemyService):
+--   "Melee"  chase the nearest player and hit in range (also contact damage for fast types).
+--   "Ranged" keep between MinRange and PreferredRange, throw a projectile every AttackCooldown.
+--   "Boss"   melee + a telegraphed stomp (red warning circle, then area damage).
 
 export type EnemyDefinition = {
 	Name: string,
@@ -9,9 +12,22 @@ export type EnemyDefinition = {
 	Speed: number, -- studs per second
 	Damage: number,
 	AttackCooldown: number,
-	AttackRange: number, -- studs, root-to-root distance at which the attack lands
+	AttackRange: number, -- studs, root-to-root distance at which the attack lands / is thrown
 	CashReward: number,
 	RootHeight: number, -- height of the root part center above the ground
+	Radius: number, -- body radius: spacing between enemies, obstacle avoidance, hit tolerance
+	Scale: number?, -- model size multiplier (default 1)
+	HitboxSize: Vector3?, -- default 2.8 x 6.6 x 2.4, multiplied by Scale
+	-- Ranged
+	PreferredRange: number?,
+	MinRange: number?,
+	ProjectileSpeed: number?,
+	ProjectileHitRadius: number?,
+	-- Boss
+	StompDamage: number?,
+	StompRadius: number?,
+	StompCooldown: number?,
+	StompWindup: number?,
 }
 
 local Definitions: { [string]: EnemyDefinition } = {
@@ -25,6 +41,53 @@ local Definitions: { [string]: EnemyDefinition } = {
 		AttackRange = 3.6,
 		CashReward = 12,
 		RootHeight = 3,
+		Radius = 1.1,
+	},
+	SlipperGrandma = {
+		Name = "Slipper Grandma",
+		Behavior = "Ranged",
+		Health = 55,
+		Speed = 7,
+		Damage = 8,
+		AttackCooldown = 2,
+		AttackRange = 34,
+		CashReward = 18,
+		RootHeight = 3,
+		Radius = 1.1,
+		PreferredRange = 24,
+		MinRange = 14,
+		ProjectileSpeed = 45,
+		ProjectileHitRadius = 3.5,
+	},
+	ScooterGrandma = {
+		Name = "Scooter Grandma",
+		Behavior = "Melee",
+		Health = 45,
+		Speed = 14,
+		Damage = 12, -- contact damage
+		AttackCooldown = 1,
+		AttackRange = 4.2,
+		CashReward = 20,
+		RootHeight = 3,
+		Radius = 1.6,
+		HitboxSize = Vector3.new(3.2, 6.6, 4.6),
+	},
+	MegaGrandma = {
+		Name = "MEGA GRANDMA",
+		Behavior = "Boss",
+		Health = 700,
+		Speed = 6,
+		Damage = 25,
+		AttackCooldown = 1.6,
+		AttackRange = 9,
+		CashReward = 200,
+		RootHeight = 12,
+		Radius = 4.4,
+		Scale = 4,
+		StompDamage = 35,
+		StompRadius = 16,
+		StompCooldown = 6,
+		StompWindup = 0.9,
 	},
 }
 

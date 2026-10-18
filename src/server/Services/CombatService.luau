@@ -316,11 +316,7 @@ local function onReload(player: Player)
 	startReload(player, state)
 end
 
-local function onEquip(player: Player, weaponId: any)
-	local state = states[player]
-	if not state or typeof(weaponId) ~= "string" or not allowRemote(state) then
-		return
-	end
+local function equip(player: Player, state: State, weaponId: string)
 	if not Weapons[weaponId] or not state.Owned[weaponId] or state.Equipped == weaponId then
 		return
 	end
@@ -331,6 +327,19 @@ local function onEquip(player: Player, weaponId: any)
 	state.CreditTime = state.SwapReadyAt
 	publish(player, state)
 	buildGun(player, state)
+end
+
+local function onEquip(player: Player, weaponId: any)
+	local state = states[player]
+	if not state or typeof(weaponId) ~= "string" or not allowRemote(state) then
+		return
+	end
+	equip(player, state, weaponId)
+end
+
+-- Switches to an owned weapon (used by the shop right after a purchase).
+function CombatService.EquipWeapon(player: Player, weaponId: string)
+	equip(player, getState(player), weaponId)
 end
 
 -- Gives a weapon (used by the shop). Returns false if already owned.

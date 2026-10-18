@@ -41,6 +41,8 @@ local ui: { [string]: any } = {} -- named references to live elements
 -- true while a screen that needs the mouse (results) is open; GunController frees the mouse then
 HUDController.ModalOpen = false
 
+local rescale: () -> () -- defined with HUDController.CreateContainer
+
 -- Instance.new + properties + children in one call.
 local function make(className: string, props: { [string]: any }, children: { Instance }?): Instance
 	local instance = Instance.new(className)
@@ -253,12 +255,44 @@ local function buildBottom(root: Frame, ammoRoot: Frame)
 	ui.AmmoLabel = label({ Text = "12 / 12", Size = UDim2.new(1, -16, 0, 38), Position = UDim2.fromOffset(8, 30), TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = THEME.Gold, Parent = ammo })
 end
 
+local function buildBossBar(root: Frame)
+	local bar = make("Frame", {
+		Name = "BossBar",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 108),
+		Size = UDim2.fromOffset(420, 30),
+		BackgroundColor3 = THEME.Dark,
+		Visible = false,
+		Parent = root,
+	}, { corner(8), stroke(3) })
+	ui.BossFill = make("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = THEME.Red,
+		BorderSizePixel = 0,
+		Parent = bar,
+	}, { corner(8) })
+	ui.BossLabel = label({ Text = "MEGA GRANDMA", Size = UDim2.new(1, -16, 1, -8), Position = UDim2.fromOffset(8, 4), ZIndex = 2, Parent = bar })
+	ui.BossBar = bar
+end
+
+local function refreshBoss()
+	local health = workspace:GetAttribute("BossHealth")
+	local maxHealth = workspace:GetAttribute("BossMaxHealth")
+	if not health or not maxHealth then
+		ui.BossBar.Visible = false
+		return
+	end
+	ui.BossBar.Visible = true
+	ui.BossLabel.Text = tostring(workspace:GetAttribute("BossName") or "BOSS") .. "  " .. tostring(health) .. " / " .. tostring(maxHealth)
+	TweenService:Create(ui.BossFill, TweenInfo.new(0.15), { Size = UDim2.fromScale(math.clamp(health / maxHealth, 0, 1), 1) }):Play()
+end
+
 local function buildNotification(root: Frame)
 	ui.Notify = label({
 		Name = "Notification",
 		Text = "",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, 140),
+		Position = UDim2.new(0.5, 0, 0, 170),
 		Size = UDim2.fromOffset(600, 56),
 		TextTransparency = 1,
 		Parent = root,
@@ -556,6 +590,35 @@ end
 
 -- public ------------------------------------------------------------------
 
+-- UI building blocks for other controllers (ShopController), so every panel looks the same.
+HUDController.Kit = { Make = make, Label = label, Corner = corner, Stroke = stroke, Theme = THEME }
+
+-- One container per screen edge/area, each with its own UIScale (scaled around its AnchorPoint,
+-- capped at 1.0) so groups never push each other off screen.
+local scales: { UIScale } = {}
+rescale = function()
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local s = math.clamp(math.min(viewport.Y / 1000, viewport.X / 1500), 0.55, 1)
+	for _, uiScale in scales do
+		uiScale.Scale = s
+	end
+end
+
+function HUDController.CreateContainer(name: string, anchor: Vector2, position: UDim2, size: Vector2): Frame
+	local frame = make("Frame", {
+		Name = name,
+		AnchorPoint = anchor,
+		Position = position,
+		Size = UDim2.fromOffset(size.X, size.Y),
+		BackgroundTransparency = 1,
+		Parent = ui.Root,
+	}) :: Frame
+	local uiScale = make("UIScale", { Parent = frame }) :: UIScale
+	table.insert(scales, uiScale)
+	rescale()
+	return frame
+end
+
 function HUDController.ShowHitmarker(killed: boolean)
 	for _, bar in ui.HitBars do
 		bar.BackgroundColor3 = if killed then THEME.Red else THEME.White
@@ -596,38 +659,18 @@ function HUDController.Init()
 	local root = make("Frame", { Name = "Root", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
 	ui.Root = root
 
-	-- one container per screen edge, each with its own UIScale (scaled around its AnchorPoint)
-	local scales = {}
-	local function container(name: string, anchor: Vector2, position: UDim2, size: Vector2): Frame
-		local frame = make("Frame", {
-			Name = name,
-			AnchorPoint = anchor,
-			Position = position,
-			Size = UDim2.fromOffset(size.X, size.Y),
-			BackgroundTransparency = 1,
-			Parent = root,
-		}) :: Frame
-		table.insert(scales, make("UIScale", { Parent = frame }))
-		return frame
-	end
-	local top = container("Top", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 12), Vector2.new(600, 200))
+	local container = HUDController.CreateContainer
+	local top = container("Top", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 12), Vector2.new(600, 210))
 	local bottom = container("Bottom", Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -12), Vector2.new(320, 160))
 	local ammoRoot = container("AmmoCorner", Vector2.new(1, 1), UDim2.new(1, -16, 1, -16), Vector2.new(170, 76))
 
-	local camera = workspace.CurrentCamera
-	local function rescale()
-		local s = math.clamp(math.min(camera.ViewportSize.Y / 1000, camera.ViewportSize.X / 1500), 0.55, 1)
-		for _, uiScale in scales do
-			uiScale.Scale = s
-		end
-	end
-	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
-	rescale()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 
 	buildCountdown(root) -- first, so it sits under everything else
 	buildCrosshair(root)
 	buildWaveBanner(top)
 	buildBottom(bottom, ammoRoot)
+	buildBossBar(top)
 	buildNotification(top)
 	buildResults(container("Results", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Vector2.new(440, 400)))
 	rescale()
@@ -661,6 +704,9 @@ function HUDController.Init()
 			refreshWave()
 			refreshCountdown()
 		end
+		if name == "BossHealth" or name == "BossMaxHealth" or name == "BossName" then
+			refreshBoss()
+		end
 		if name == "MatchState" and workspace:GetAttribute("MatchState") == "Intermission" then
 			HUDController.HideResults() -- new match started
 		end
@@ -677,6 +723,7 @@ function HUDController.Init()
 	refreshWeapon()
 	refreshWave()
 	refreshCountdown()
+	refreshBoss()
 end
 
 return HUDController

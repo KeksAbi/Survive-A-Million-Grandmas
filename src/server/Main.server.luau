@@ -13,6 +13,8 @@ local EconomyService = require(Services.EconomyService)
 local PlayerService = require(Services.PlayerService)
 local EnemyService = require(Services.EnemyService)
 local CombatService = require(Services.CombatService)
+local GrenadeService = require(Services.GrenadeService)
+local ShopService = require(Services.ShopService)
 local WaveService = require(Services.WaveService)
 
 Remotes.Init()
@@ -21,6 +23,8 @@ MapBuilder.Build()
 EconomyService.Init()
 EnemyService.Init()
 CombatService.Init()
+GrenadeService.Init()
+ShopService.Init()
 PlayerService.Init() -- after the services that listen to CharacterSpawned
 WaveService.Start() -- the match loop
 

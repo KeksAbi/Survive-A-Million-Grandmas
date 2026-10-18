@@ -5,9 +5,14 @@
 --   Fire(origin: Vector3, direction: Vector3)   shoot the equipped weapon
 --   Reload()                                    start a reload
 --   Equip(weaponId: string)                     switch weapon
+--   Purchase(itemId: string)                    buy a weapon id or "Grenade"
+--   ThrowGrenade(target: Vector3)               throw toward a ground point (server clamps the distance)
 -- Server -> Client:
 --   HitFeedback(position: Vector3, damage: number, killed: boolean)   to the shooter only
 --   ShotFx(shooterUserId: number, weaponId: string, origin: Vector3, endPosition: Vector3)   to the other players
+--   WorldFx(kind: string, ...)                  visual-only events for everyone:
+--       "Slipper" (from, to, flightTime) | "Grenade" (from, landing, flightTime, fuse)
+--       "Explosion" (position, radius) | "StompWarning" (position, radius, seconds) | "Stomp" (position, radius)
 --   Notify(text: string, kind: string)          banner message ("info", "good", "bad", "boss", "gold")
 --   MatchResult(result: { Victory: boolean, WavesSurvived: number, Kills: number, CashEarned: number,
 --               TeamKills: number, BestWave: number, NextMatchIn: number })   results screen
@@ -15,7 +20,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Fire", "Reload", "Equip", "HitFeedback", "ShotFx", "Notify", "MatchResult" }
+local NAMES = { "Fire", "Reload", "Equip", "Purchase", "ThrowGrenade", "HitFeedback", "ShotFx", "WorldFx", "Notify", "MatchResult" }
 
 local Remotes = {}
 
