@@ -35,7 +35,10 @@ function MobileController.Init()
 		return
 	end
 	local theme = HUDController.Kit.Theme
-	local panel = HUDController.CreateContainer("MobileButtons", Vector2.new(1, 1), UDim2.new(1, -16, 1, -100), Vector2.new(230, 210))
+	-- above Roblox's jump button (bottom right): it is 70 px on phones and 120 px on bigger touch screens
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local bigScreen = math.min(viewport.X, viewport.Y) > 500
+	local panel = HUDController.CreateContainer("MobileButtons", Vector2.new(1, 1), UDim2.new(1, -16, 1, if bigScreen then -230 else -100), Vector2.new(230, 210))
 
 	local fire = roundButton(panel, "FIRE", 116, UDim2.new(1, -62, 1, -62), theme.Red)
 	fire.InputBegan:Connect(function(input)

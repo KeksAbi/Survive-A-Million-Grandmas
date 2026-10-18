@@ -44,6 +44,7 @@ type Enemy = {
 }
 
 local enemies: { [number]: Enemy } = {}
+local frozenUntil = 0 -- os.clock() until which no enemy moves or attacks (cutscene, last chance)
 local activeCount = 0
 local nextId = 1
 
@@ -265,6 +266,7 @@ function EnemyService.ClearAll()
 	end
 	table.clear(enemies)
 	activeCount = 0
+	frozenUntil = 0
 	publishCount()
 	publishBoss(nil)
 end
@@ -334,13 +336,13 @@ local function stomp(enemy: Enemy)
 end
 
 -- Cutscenes: while frozen, no enemy moves or attacks (and nothing writes their CFrames).
-local frozenUntil = 0
 function EnemyService.Freeze(seconds: number)
 	frozenUntil = math.max(frozenUntil, os.clock() + seconds)
 end
 
-function EnemyService.Unfreeze()
-	frozenUntil = 0
+-- Ends any freeze `seconds` from now (shortens a longer one). A later Freeze still extends it.
+function EnemyService.EndFreezeIn(seconds: number)
+	frozenUntil = os.clock() + seconds
 end
 
 local accumulator = 0

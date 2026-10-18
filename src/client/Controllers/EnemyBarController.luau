@@ -13,7 +13,7 @@ local function attach(model: Instance)
 		return
 	end
 	local fill: Frame? = nil
-	model:GetAttributeChangedSignal("HealthRatio"):Connect(function()
+	local function update()
 		if model:GetAttribute("Boss") then
 			return
 		end
@@ -46,15 +46,21 @@ local function attach(model: Instance)
 		local bar = fill :: Frame
 		bar.Size = UDim2.fromScale(math.clamp(ratio, 0, 1), 1)
 		bar.BackgroundColor3 = if ratio > 0.5 then Color3.fromRGB(110, 230, 90) elseif ratio > 0.25 then Color3.fromRGB(255, 200, 50) else Color3.fromRGB(235, 60, 60)
-	end)
+	end
+	model:GetAttributeChangedSignal("HealthRatio"):Connect(update)
+	if model:GetAttribute("HealthRatio") then
+		task.defer(update) -- already hurt when it reached this client (joined mid-fight)
+	end
 end
 
 function EnemyBarController.Init()
-	local folder = workspace:WaitForChild("Enemies")
-	folder.ChildAdded:Connect(attach)
-	for _, model in folder:GetChildren() do
-		attach(model)
-	end
+	task.spawn(function() -- never blocks the other controllers from starting
+		local folder = workspace:WaitForChild("Enemies")
+		folder.ChildAdded:Connect(attach)
+		for _, model in folder:GetChildren() do
+			attach(model)
+		end
+	end)
 end
 
 return EnemyBarController

@@ -73,6 +73,7 @@ local function onThrow(player: Player, target: any)
 	-- no grenade in the bag: buy one on the spot (G with an empty bag = buy + throw)
 	if (counts[player] or 0) <= 0 then
 		if not EconomyService.TrySpend(player, GrenadeConfig.Cost) then
+			lastThrow[player] = now -- the cooldown also limits "not enough cash" replies
 			Remotes.Get("Notify"):FireClient(player, "NOT ENOUGH CASH! GRENADE COSTS $" .. GrenadeConfig.Cost, "bad")
 			return
 		end

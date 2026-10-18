@@ -275,6 +275,14 @@ function DataService.GrantReceipt(userId: number, purchaseId: string, field: str
 		end
 		return true
 	end
+	-- one write per player at a time, so a save and a receipt never overwrite each other's result
+	if session then
+		local deadline = os.clock() + 15
+		while session.Saving and os.clock() < deadline do
+			task.wait(0.2)
+		end
+		session.Saving = true
+	end
 	local ok, stored = withRetries("receipt " .. purchaseId, function()
 		return store:UpdateAsync(keyFor(userId), function(old)
 			local doc = sanitize(old)
@@ -290,6 +298,9 @@ function DataService.GrantReceipt(userId: number, purchaseId: string, field: str
 		end)
 	end)
 	if not ok then
+		if session then
+			session.Saving = false
+		end
 		return false
 	end
 	if player and session and player.Parent == Players then
@@ -305,6 +316,9 @@ function DataService.GrantReceipt(userId: number, purchaseId: string, field: str
 			end
 		end
 		publish(player, session)
+	end
+	if session then
+		session.Saving = false
 	end
 	return true
 end

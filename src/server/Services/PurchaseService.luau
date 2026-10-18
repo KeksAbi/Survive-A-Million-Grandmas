@@ -214,6 +214,15 @@ end
 
 -- public --------------------------------------------------------------------
 
+-- New match (or admin jump): everyone may revive again on every wave.
+function PurchaseService.ResetRevives()
+	table.clear(revivedWave)
+	table.clear(reviveUses)
+	for _, player in Players:GetPlayers() do
+		player:SetAttribute("RevivedWave", nil)
+	end
+end
+
 function PurchaseService.Init()
 	Players.PlayerAdded:Connect(function(player)
 		player:SetAttribute("Skin", "Default")
@@ -243,8 +252,17 @@ function PurchaseService.Init()
 	end)
 	MarketplaceService.ProcessReceipt = processReceipt
 
+	local lastSkinChange: { [Player]: number } = {}
+	Players.PlayerRemoving:Connect(function(player)
+		lastSkinChange[player] = nil
+	end)
 	Remotes.Get("SelectSkin").OnServerEvent:Connect(function(player, skinId)
+		local now = os.clock()
+		if now - (lastSkinChange[player] or 0) < 0.5 then
+			return -- each change rebuilds the gun for everyone: no spamming
+		end
 		if typeof(skinId) == "string" and canUseSkin(player, skinId) then
+			lastSkinChange[player] = now
 			setSkin(player, skinId)
 		end
 	end)

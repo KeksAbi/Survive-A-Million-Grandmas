@@ -106,7 +106,7 @@ return {
 	},
 
 	Combat = {
-		MaxShotOriginDistance = 14, -- shot origin must be this close to the shooter's head
+		MaxShotOriginDistance = 10, -- shot origin must be this close to the shooter's head (gun length + lag)
 		MaxRange = 300,
 		-- Fire-rate check uses a shot budget: one shot refills per FireCooldown, up to this many can be banked.
 		-- Shots often arrive in clumps over the network; a strict gap check would throw most rifle shots away.

@@ -16,6 +16,7 @@ local WaveDefinitions = require(Shared.WaveDefinitions)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local CombatService = require(script.Parent.CombatService)
 local DataService = require(script.Parent.DataService)
+local PurchaseService = require(script.Parent.PurchaseService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemyService = require(script.Parent.EnemyService)
 local GrenadeService = require(script.Parent.GrenadeService)
@@ -118,8 +119,12 @@ local function intermission(waveIndex: number, overrideSeconds: number?): boolea
 end
 
 -- Whole team down: freeze the grandmas and give everyone LastChanceSeconds to revive (workspace attribute
--- ReviveCountdown drives the client countdown). Returns true if someone is alive again.
-local function lastChance(): boolean
+-- ReviveCountdown drives the client countdown). Returns true if the wave goes on: someone is alive again,
+-- or the wave was already won (`queueDone` and no grandma left, e.g. a grenade finished the last one).
+local function lastChance(queueDone: boolean): boolean
+	if queueDone and EnemyService.GetActiveCount() == 0 then
+		return true
+	end
 	local monetization = Config.Monetization
 	local anyCredits = false
 	for _, player in Players:GetPlayers() do
@@ -137,7 +142,7 @@ local function lastChance(): boolean
 	local revived = false
 	while os.clock() < deadline do
 		workspace:SetAttribute("ReviveCountdown", math.ceil(deadline - os.clock()))
-		if #PlayerService.GetLivingPlayers() > 0 then
+		if #PlayerService.GetLivingPlayers() > 0 or (queueDone and EnemyService.GetActiveCount() == 0) then
 			revived = true
 			break
 		end
@@ -148,7 +153,7 @@ local function lastChance(): boolean
 	end
 	workspace:SetAttribute("ReviveCountdown", nil)
 	if revived then
-		task.delay(1, EnemyService.Unfreeze) -- a moment to get up (the spawn shield covers the rest)
+		EnemyService.EndFreezeIn(1) -- a moment to get up (the spawn shield covers the rest)
 	end
 	return revived
 end
@@ -176,7 +181,11 @@ local function runWave(waveIndex: number): string
 		if jumpTarget then
 			return "Jump"
 		end
-		if #PlayerService.GetLivingPlayers() == 0 and not lastChance() then
+		local queueDone = nextIndex > #queue
+		if queueDone and EnemyService.GetActiveCount() == 0 then
+			return "Cleared" -- checked first: a wave won at the moment the last player fell still counts
+		end
+		if #PlayerService.GetLivingPlayers() == 0 and not lastChance(queueDone) then
 			return if jumpTarget then "Jump" else "Defeat"
 		end
 
@@ -196,7 +205,11 @@ local function runWave(waveIndex: number): string
 					PlayerService.ShieldAll(seconds + 1)
 					Remotes.Get("WorldFx"):FireAllClients("BossIntro", enemy.Id, seconds, enemy.Position, enemy.Facing)
 					nextSpawnAt = now + seconds
-					task.delay(seconds, notifyAll, "DEFEAT THE MEGA GRANDMA!", "boss")
+					task.delay(seconds, function()
+						if enemy.Alive and state == "Wave" then
+							notifyAll("DEFEAT THE MEGA GRANDMA!", "boss")
+						end
+					end)
 				end
 			else
 				nextSpawnAt = now + 0.5 -- MaxActive reached: try again shortly
@@ -230,6 +243,7 @@ end
 local function resetMatch()
 	adminUsed = false
 	EnemyService.ClearAll()
+	PurchaseService.ResetRevives()
 	teamKills = 0
 	wavesSurvived = 0
 	table.clear(matchKills)
@@ -260,6 +274,7 @@ local function runMatch(): string
 			jumpTarget = nil
 			EnemyService.ClearAll()
 			wavesSurvived = waveIndex - 1
+			PurchaseService.ResetRevives()
 			countdownOverride = Config.Admin.JumpCountdownSeconds
 			PlayerService.RespawnAndHealAll()
 			if waveIndex > #WaveDefinitions then

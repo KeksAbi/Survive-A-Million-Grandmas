@@ -128,7 +128,12 @@ Report honestly what was tested and what was not.
 - [x] Phase 6 (written, NOT yet tested in Studio): DataService stats + leaderstats, PurchaseService passes /
   Revive product / skins (`SkinDefinitions`), StoreController. Pass/product ids set in Config.Monetization (created by Alex).
   Alex 2026-10-18: stats save and load across sessions in Studio (API access on). Purchases still untested.
-- [ ] Phase 7 Testing and optimization.
+- [~] Phase 7 Testing and optimization: code review (match flow, security, performance/mobile) done and fixed
+  2026-10-18: revive limits reset per match/jump, freeze cleared on ClearAll and not cut short by a revive,
+  a won wave beats a same-tick team wipe, per-weapon fire budget (swap no longer refills), claims only count
+  pellets that land, no shooting with the muzzle through a wall, skin/grenade spam limits, receipt writes
+  serialized with saves, mobile layout (grenade panel top right on touch, buttons above the jump button).
+  Studio checklist for Alex: `docs/test-checklist.md` (not yet run).
 
 ## Known limitations (now)
 - Not yet run in Studio; first playtest may show bugs.

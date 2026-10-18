@@ -5,6 +5,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -75,7 +76,11 @@ end
 local function buildGrenadePanel()
 	local kit = HUDController.Kit
 	local theme = kit.Theme
-	local panel = HUDController.CreateContainer("GrenadePanel", Vector2.new(1, 0.5), UDim2.new(1, -16, 0.5, 0), Vector2.new(130, 170))
+	-- right edge; on touch screens at the top right, above the FIRE / R / G buttons
+	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local panel = if touch
+		then HUDController.CreateContainer("GrenadePanel", Vector2.new(1, 0), UDim2.new(1, -16, 0, 56), Vector2.new(130, 170))
+		else HUDController.CreateContainer("GrenadePanel", Vector2.new(1, 0.5), UDim2.new(1, -16, 0.5, 0), Vector2.new(130, 170))
 	local button = kit.Make("TextButton", {
 		Text = "",
 		AutoButtonColor = true,

@@ -23,8 +23,8 @@ type State = {
 	Owned: { [string]: boolean },
 	Equipped: string,
 	Ammo: { [string]: number },
-	FireCredit: number,
-	CreditTime: number,
+	FireCredit: { [string]: number }, -- per weapon, so swapping guns never refills a shot
+	CreditTime: { [string]: number },
 	SwapReadyAt: number,
 	Reloading: boolean,
 	ReloadToken: number,
@@ -62,8 +62,8 @@ local function newState(): State
 		Owned = owned,
 		Equipped = Config.Player.StartingWeapon,
 		Ammo = ammo,
-		FireCredit = 1,
-		CreditTime = 0,
+		FireCredit = {},
+		CreditTime = {},
 		SwapReadyAt = 0,
 		Reloading = false,
 		ReloadToken = 0,
@@ -176,14 +176,16 @@ end
 
 -- Shot budget: refills 1 per FireCooldown, capped at FireBurstAllowance. Spends 1 per shot.
 -- Caps the average fire rate while accepting shots that arrive bunched together.
-local function takeShotCredit(state: State, cooldown: number, now: number): boolean
-	local credit = math.min(Config.Combat.FireBurstAllowance, state.FireCredit + (now - state.CreditTime) / cooldown)
-	state.CreditTime = now
+local function takeShotCredit(state: State, weaponId: string, cooldown: number, now: number): boolean
+	local last = state.CreditTime[weaponId]
+	local stored = state.FireCredit[weaponId] or Config.Combat.FireBurstAllowance
+	local credit = if last then math.min(Config.Combat.FireBurstAllowance, stored + (now - last) / cooldown) else stored
+	state.CreditTime[weaponId] = now
 	if credit < 1 then
-		state.FireCredit = credit
+		state.FireCredit[weaponId] = credit
 		return false
 	end
-	state.FireCredit = credit - 1
+	state.FireCredit[weaponId] = credit - 1
 	return true
 end
 
@@ -281,6 +283,14 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 	if not head or (origin - head.Position).Magnitude > Config.Combat.MaxShotOriginDistance then
 		return
 	end
+	-- the muzzle may not be on the other side of a wall (shooting from cover)
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		mapParams.FilterDescendantsInstances = { map }
+		if workspace:Raycast(head.Position, origin - head.Position, mapParams) then
+			return
+		end
+	end
 
 	local weapon = Weapons[state.Equipped]
 	local now = os.clock()
@@ -291,7 +301,7 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 		startReload(player, state)
 		return
 	end
-	if not takeShotCredit(state, weapon.FireCooldown, now) then
+	if not takeShotCredit(state, weapon.Id, weapon.FireCooldown, now) then
 		return
 	end
 	state.Ammo[weapon.Id] -= 1
@@ -308,9 +318,12 @@ local function onFire(player: Player, origin: any, direction: any, aimedEnemyId:
 		local enemy = valid and EnemyService.Get(aimedEnemyId)
 		if enemy and position then
 			local corrected = (enemy.Position + Vector3.new(0, enemy.Def.RootHeight, 0) - origin).Unit
+			-- only pellets that really reach her count (another grandma in front blocks them)
 			local claimed, claimedPosition = castPellets(weapon, origin, corrected, aimedEnemyId)
-			damageByEnemy[aimedEnemyId] = math.max(claimed[aimedEnemyId] or 0, weapon.Damage)
-			hitPosition[aimedEnemyId] = claimedPosition[aimedEnemyId] or position
+			if claimed[aimedEnemyId] then
+				damageByEnemy[aimedEnemyId] = claimed[aimedEnemyId]
+				hitPosition[aimedEnemyId] = claimedPosition[aimedEnemyId] or position
+			end
 		end
 	end
 
@@ -352,8 +365,6 @@ local function equip(player: Player, state: State, weaponId: string)
 	cancelReload(state)
 	state.Equipped = weaponId
 	state.SwapReadyAt = os.clock() + Config.Combat.SwapDelay
-	state.FireCredit = 1 -- the new weapon starts with one shot ready
-	state.CreditTime = state.SwapReadyAt
 	publish(player, state)
 	buildGun(player, state)
 end
