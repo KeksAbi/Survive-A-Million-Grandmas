@@ -215,8 +215,8 @@ local function buildGun(player: Player, state: State)
 		local stockEnd = Vector3.new(torsoSize.X * 0.22, torsoSize.Y * 0.28, -torsoSize.Z * 0.5)
 		gunLocal = CFrame.new(stockEnd + gunTurn.LookVector * back) * gunTurn
 	else
-		-- pistol: square two-handed stance, arms almost straight, just right of the chest's middle
-		gunLocal = CFrame.new(torsoSize.X * 0.12, torsoSize.Y * 0.3, -(torsoSize.Z * 0.5 + armLength * 0.85))
+		-- pistol: square two-handed stance in front of the chest, close enough that both hands surely reach
+		gunLocal = CFrame.new(torsoSize.X * 0.1, torsoSize.Y * 0.25, -(torsoSize.Z * 0.5 + armLength * 0.5))
 	end
 
 	-- the left hand holds as far forward as the left arm can reach (slides back toward the grip if not)
