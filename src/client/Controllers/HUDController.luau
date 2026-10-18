@@ -318,41 +318,97 @@ local function refreshWave()
 	end
 end
 
--- big center countdown during the intermission ---------------------------------
+-- full-screen countdown during the intermission ---------------------------------
+-- A dimmed overlay under the rest of the HUD with a huge popping number, then "GO!" when the wave starts.
+-- Sizes are screen-relative (scale), so it fills any screen.
 
-local function buildCountdown(center: Frame)
-	ui.CountdownFrame = center
-	center.Visible = false
-	ui.CountdownTitle = label({ Text = "WAVE 1 STARTS IN", Size = UDim2.new(1, 0, 0, 44), Parent = center })
+local function buildCountdown(root: Frame)
+	local overlay = make("Frame", {
+		Name = "Countdown",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = THEME.Black,
+		BackgroundTransparency = 1,
+		ZIndex = 0, -- under every other HUD element, never blocks buttons
+		Visible = false,
+		Parent = root,
+	})
+	ui.CountdownFrame = overlay
+	ui.CountdownTitle = label({
+		Text = "WAVE 1",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.24),
+		Size = UDim2.fromScale(0.7, 0.11),
+		Parent = overlay,
+	})
+	ui.CountdownSub = label({
+		Text = "STARTS IN",
+		TextColor3 = THEME.Green,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.33),
+		Size = UDim2.fromScale(0.5, 0.05),
+		Parent = overlay,
+	})
 	ui.CountdownNumber = label({
 		Text = "10",
 		TextColor3 = THEME.Gold,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, 120),
-		Size = UDim2.fromOffset(200, 130),
-		Parent = center,
+		Position = UDim2.fromScale(0.5, 0.56),
+		Size = UDim2.fromScale(0.5, 0.36),
+		Parent = overlay,
 	})
-	ui.CountdownNumber:FindFirstChildOfClass("UIStroke").Thickness = 5
+	ui.CountdownTitle:FindFirstChildOfClass("UIStroke").Thickness = 5
+	ui.CountdownSub:FindFirstChildOfClass("UIStroke").Thickness = 3
+	ui.CountdownNumber:FindFirstChildOfClass("UIStroke").Thickness = 8
 end
 
-local lastCountdown = nil
+local NUMBER_SIZE = UDim2.fromScale(0.5, 0.36)
+local lastCountdown: number? = nil
+local goToken = 0
+
+local function popNumber(text: string, color: Color3)
+	local number = ui.CountdownNumber
+	number.Text = text
+	number.TextColor3 = color
+	number.TextTransparency = 0
+	number.Size = UDim2.fromScale(0.85, 0.6)
+	number.Rotation = math.random(-8, 8)
+	TweenService:Create(number, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = NUMBER_SIZE, Rotation = 0 }):Play()
+end
+
 local function refreshCountdown()
 	local matchState = workspace:GetAttribute("MatchState")
 	local countdown = workspace:GetAttribute("Countdown") or 0
-	local show = matchState == "Intermission" and countdown > 0
-	ui.CountdownFrame.Visible = show
-	if not show then
+	local overlay = ui.CountdownFrame
+
+	if matchState == "Intermission" and countdown > 0 then
+		goToken += 1
+		if not overlay.Visible then
+			overlay.Visible = true
+			overlay.BackgroundTransparency = 1
+			TweenService:Create(overlay, TweenInfo.new(0.4), { BackgroundTransparency = 0.55 }):Play()
+		end
+		ui.CountdownTitle.Text = "WAVE " .. tostring(workspace:GetAttribute("Wave") or 1)
+		ui.CountdownSub.Text = "STARTS IN"
+		if countdown ~= lastCountdown then
+			lastCountdown = countdown
+			popNumber(tostring(countdown), if countdown <= 3 then THEME.Red else THEME.Gold)
+		end
+	elseif matchState == "Wave" and lastCountdown ~= nil then
+		-- countdown just finished: flash GO! and fade the overlay out
 		lastCountdown = nil
-		return
-	end
-	ui.CountdownTitle.Text = "WAVE " .. tostring(workspace:GetAttribute("Wave") or 1) .. " STARTS IN"
-	ui.CountdownNumber.Text = tostring(countdown)
-	ui.CountdownNumber.TextColor3 = if countdown <= 3 then THEME.Red else THEME.Gold
-	if countdown ~= lastCountdown then
-		lastCountdown = countdown
-		-- pop: start big, settle to normal size
-		ui.CountdownNumber.Size = UDim2.fromOffset(280, 182)
-		TweenService:Create(ui.CountdownNumber, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(200, 130) }):Play()
+		goToken += 1
+		local token = goToken
+		ui.CountdownSub.Text = "SURVIVE!"
+		popNumber("GO!", THEME.Green)
+		TweenService:Create(overlay, TweenInfo.new(0.9), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.9, function()
+			if token == goToken then
+				overlay.Visible = false
+			end
+		end)
+	elseif matchState ~= "Wave" then
+		lastCountdown = nil
+		overlay.Visible = false
 	end
 end
 
@@ -556,11 +612,11 @@ function HUDController.Init()
 	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 	rescale()
 
+	buildCountdown(root) -- first, so it sits under everything else
 	buildCrosshair(root)
 	buildWaveBanner(top)
 	buildBottom(bottom, ammoRoot)
 	buildNotification(top)
-	buildCountdown(container("Countdown", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.36), Vector2.new(460, 190)))
 	buildResults(container("Results", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Vector2.new(440, 400)))
 	rescale()
 	ui.Status = label({
