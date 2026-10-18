@@ -141,7 +141,7 @@ local function aimStep()
 	local humanoid = getHumanoid()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	-- MouseBehavior is left to the camera scripts (they lock it while right-click turning the camera)
 	if not humanoid or not root or HUDController.ModalOpen then
 		UserInputService.MouseIconEnabled = true
 		HUDController.SetCrosshair(nil)
