@@ -59,29 +59,39 @@ local spawning: { [Player]: boolean } = {}
 local descriptions: { [Player]: HumanoidDescription } = {}
 
 -- The player's own look on the basic body: body parts and body scales reset to the standard blocky R15,
--- clothes, accessories, colors and face kept. nil if Roblox could not load it (then the normal avatar is used).
-local function basicDescription(player: Player): HumanoidDescription?
+-- clothes, accessories, colors and face kept. If Roblox cannot deliver the look (3 tries), the plain blocky
+-- default body is used, so nobody ever spawns with a custom body.
+local function basicDescription(player: Player): HumanoidDescription
 	if descriptions[player] then
 		return descriptions[player]
 	end
-	local ok, description = pcall(function()
-		return Players:GetHumanoidDescriptionFromUserId(math.max(player.UserId, 1))
-	end)
-	if not ok or not description then
-		warn("[PlayerService] could not load the avatar of " .. player.Name .. ": " .. tostring(description))
-		return nil
+	local description: HumanoidDescription? = nil
+	for attempt = 1, 3 do
+		local ok, result = pcall(function()
+			return Players:GetHumanoidDescriptionFromUserId(math.max(player.UserId, 1))
+		end)
+		if ok and result then
+			description = result
+			break
+		end
+		warn("[PlayerService] could not load the avatar of " .. player.Name .. " (try " .. attempt .. "): " .. tostring(result))
+		task.wait(attempt)
 	end
+	local cacheIt = description ~= nil
+	local final = description or Instance.new("HumanoidDescription")
 	for _, field in { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
-		description[field] = 0
+		final[field] = 0
 	end
-	description.HeightScale = 1
-	description.WidthScale = 1
-	description.DepthScale = 1
-	description.HeadScale = 1
-	description.BodyTypeScale = 0
-	description.ProportionScale = 0
-	descriptions[player] = description
-	return description
+	final.HeightScale = 1
+	final.WidthScale = 1
+	final.DepthScale = 1
+	final.HeadScale = 1
+	final.BodyTypeScale = 0
+	final.ProportionScale = 0
+	if cacheIt then
+		descriptions[player] = final -- the plain fallback is not cached: the next spawn tries again
+	end
+	return final
 end
 
 -- Invisible damage shield for every living player (boss cutscene).
