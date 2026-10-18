@@ -163,9 +163,12 @@ local function setStance(character: Model, twist: number)
 	end
 end
 
--- R6 (blocky): blocks cannot bend, so each arm points straight at its target from the shoulder (it turns
--- around a point 0.5 below its top). Torso-space target. The animated shoulder Motor6D is switched off and
--- a fixed Weld holds the arm instead, so the walk animation can never swing the gun arms.
+-- R6 (blocky): blocks cannot bend, so each arm turns around the top of the shoulder and points straight at
+-- its target (torso space); if the target is beyond the arm, the arm slides forward up to R6_MAX_SLIDE so the
+-- hand still lands on the gun. The animated shoulder Motor6D is switched off and a fixed Weld holds the arm
+-- instead, so the walk animation can never swing the gun arms.
+local R6_PIVOT_TO_HAND = 1.65 -- arm turns 0.1 below its top; the hand (lower end) is ~1.65 further
+local R6_MAX_SLIDE = 0.9
 local function aimArmR6(torso: BasePart, jointName: string, side: number, target: Vector3)
 	local motor = torso:FindFirstChild(jointName)
 	if not motor or not motor:IsA("Motor6D") then
@@ -180,7 +183,7 @@ local function aimArmR6(torso: BasePart, jointName: string, side: number, target
 		joint.Parent = torso
 	end
 	motor.Enabled = false
-	local shoulder = Vector3.new(side * 1.5, 0.5, 0)
+	local shoulder = Vector3.new(side * 1.5, 0.9, 0)
 	local toTarget = target - shoulder
 	if toTarget.Magnitude < 0.05 then
 		return
@@ -191,8 +194,9 @@ local function aimArmR6(torso: BasePart, jointName: string, side: number, target
 		look = Vector3.new(0, 0, -1)
 	end
 	local back = -look.Unit
-	joint.C0 = CFrame.new(shoulder) * CFrame.fromMatrix(Vector3.zero, up:Cross(back), up)
-	joint.C1 = CFrame.new(0, 0.5, 0)
+	local slide = math.clamp(toTarget.Magnitude - R6_PIVOT_TO_HAND, 0, R6_MAX_SLIDE)
+	joint.C0 = CFrame.new(shoulder - up * slide) * CFrame.fromMatrix(Vector3.zero, up:Cross(back), up)
+	joint.C1 = CFrame.new(0, 0.9, 0)
 end
 
 local function buildGun(player: Player, state: State)
@@ -244,8 +248,11 @@ local function buildGun(player: Player, state: State)
 	local gunLocal
 	local isR6 = torso.Name == "Torso"
 	if isR6 then
-		-- classic blocky: the gun at the end of the straight right arm, stock beside the right shoulder
-		gunLocal = if twoHanded then CFrame.new(1.05, 0.4, -1.45) else CFrame.new(0.45, 0.35, -1.15)
+		-- classic blocky: long guns in front of the right half of the chest, stock end at the chest, barrel
+		-- straight ahead; pistol held out in front, a bit right of center
+		gunLocal = if twoHanded
+			then CFrame.new(torsoSize.X * 0.18, torsoSize.Y * 0.18, -(torsoSize.Z * 0.5 + back + 0.05))
+			else CFrame.new(torsoSize.X * 0.1, torsoSize.Y * 0.2, -(torsoSize.Z * 0.5 + 1.0))
 	elseif twoHanded then
 		-- stock end in the shoulder pocket (front of the chest, right of center), barrel forward
 		local stockEnd = Vector3.new(torsoSize.X * 0.22, torsoSize.Y * 0.28, -torsoSize.Z * 0.5)
@@ -260,9 +267,13 @@ local function buildGun(player: Player, state: State)
 	local leftUpper = character:FindFirstChild("LeftUpperArm")
 	local leftLower = character:FindFirstChild("LeftLowerArm")
 	local leftHand = character:FindFirstChild("LeftHand")
-	if leftGrip and leftUpper and leftLower and leftHand then
-		local reach = (leftUpper.Size.Y + leftLower.Size.Y + leftHand.Size.Y * 0.5) * 0.95
-		local shoulder = Vector3.new(-torsoSize.X * 0.5, torsoSize.Y * 0.3, 0)
+	local leftReach = if leftUpper and leftLower and leftHand
+		then (leftUpper.Size.Y + leftLower.Size.Y + leftHand.Size.Y * 0.5) * 0.95
+		elseif isR6 then R6_PIVOT_TO_HAND + R6_MAX_SLIDE
+		else nil
+	if leftGrip and leftReach then
+		local reach = leftReach
+		local shoulder = if isR6 then Vector3.new(-1.5, 0.9, 0) else Vector3.new(-torsoSize.X * 0.5, torsoSize.Y * 0.3, 0)
 		local target = leftGrip.CFrame
 		while target.Position.Z < -0.3 and ((gunLocal * target).Position - shoulder).Magnitude > reach do
 			target = target + Vector3.new(0, 0, 0.05)
