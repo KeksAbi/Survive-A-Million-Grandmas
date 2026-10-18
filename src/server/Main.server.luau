@@ -13,7 +13,7 @@ local EconomyService = require(Services.EconomyService)
 local PlayerService = require(Services.PlayerService)
 local EnemyService = require(Services.EnemyService)
 local CombatService = require(Services.CombatService)
-local DevSpawner = require(Services.DevSpawner)
+local WaveService = require(Services.WaveService)
 
 Remotes.Init()
 MapBuilder.Build()
@@ -21,8 +21,7 @@ MapBuilder.Build()
 EconomyService.Init()
 EnemyService.Init()
 CombatService.Init()
-PlayerService.Init() -- last: fires CharacterSpawned, which the services above listen to
-
-DevSpawner.Start()
+PlayerService.Init() -- after the services that listen to CharacterSpawned
+WaveService.Start() -- the match loop
 
 print("[SurviveMillionGrandmas] server started")

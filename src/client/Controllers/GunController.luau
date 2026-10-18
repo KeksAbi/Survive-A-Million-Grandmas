@@ -76,7 +76,7 @@ end
 
 local function tryFire()
 	local weapon = WeaponData.Weapons[player:GetAttribute("Weapon") or ""]
-	if not weapon or not getHumanoid() or player:GetAttribute("Reloading") then
+	if not weapon or not getHumanoid() or player:GetAttribute("Reloading") or HUDController.ModalOpen then
 		return
 	end
 	local now = os.clock()
@@ -126,7 +126,7 @@ local function aimStep()
 	local humanoid = getHumanoid()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root then
+	if not humanoid or not root or HUDController.ModalOpen then
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
 		return

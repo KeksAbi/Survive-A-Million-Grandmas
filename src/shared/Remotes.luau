@@ -8,12 +8,14 @@
 -- Server -> Client:
 --   HitFeedback(position: Vector3, damage: number, killed: boolean)   to the shooter only
 --   ShotFx(shooterUserId: number, weaponId: string, origin: Vector3, endPosition: Vector3)   to the other players
---   Notify(text: string, kind: string)          banner message ("info", "good", "bad", "boss")
+--   Notify(text: string, kind: string)          banner message ("info", "good", "bad", "boss", "gold")
+--   MatchResult(result: { Victory: boolean, WavesSurvived: number, Kills: number, CashEarned: number,
+--               TeamKills: number, BestWave: number, NextMatchIn: number })   results screen
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Fire", "Reload", "Equip", "HitFeedback", "ShotFx", "Notify" }
+local NAMES = { "Fire", "Reload", "Equip", "HitFeedback", "ShotFx", "Notify", "MatchResult" }
 
 local Remotes = {}
 

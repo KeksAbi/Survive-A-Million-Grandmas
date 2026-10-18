@@ -1,7 +1,7 @@
 --!nonstrict
 -- Builds the whole HUD in code (no Studio GUI to keep in sync) and keeps it updated from attributes:
 --   player: Cash, Weapon, Ammo, MagSize, Reloading, Owns<WeaponId>
---   workspace: Wave, WaveKills, WaveTotal (set by WaveService; absent = test arena)
+--   workspace: MatchState, Wave, WaveKills, WaveTotal, Countdown (set by WaveService)
 -- Layout: wave banner top center, crosshair center, health / cash / weapon slots bottom center,
 -- ammo bottom right. Each corner group has its own UIScale (max 1.0), so nothing is pushed off screen.
 
@@ -37,6 +37,9 @@ local NOTIFY_COLORS = {
 }
 
 local ui: { [string]: any } = {} -- named references to live elements
+
+-- true while a screen that needs the mouse (results) is open; GunController frees the mouse then
+HUDController.ModalOpen = false
 
 -- Instance.new + properties + children in one call.
 local function make(className: string, props: { [string]: any }, children: { Instance }?): Instance
@@ -149,7 +152,8 @@ local function buildWaveBanner(root: Frame)
 		BackgroundColor3 = THEME.Green,
 		Parent = root,
 	}, { corner(10), stroke(3) })
-	ui.WaveLabel = label({ Text = "TEST ARENA", TextColor3 = THEME.Black, Size = UDim2.new(1, -20, 1, -8), Position = UDim2.fromOffset(10, 4), Parent = banner })
+	ui.WaveBanner = banner
+	ui.WaveLabel = label({ Text = "WAITING...", TextColor3 = THEME.Black, Size = UDim2.new(1, -20, 1, -8), Position = UDim2.fromOffset(10, 4), Parent = banner })
 	ui.WaveLabel:FindFirstChildOfClass("UIStroke").Enabled = false
 
 	local progress = make("Frame", {
@@ -161,7 +165,7 @@ local function buildWaveBanner(root: Frame)
 		Visible = false,
 		Parent = root,
 	}, { corner(8), stroke(2) })
-	label({ Text = "SURVIVE THE GRANDMAS", TextColor3 = THEME.Green, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.7, -10, 1, -10), Position = UDim2.fromOffset(10, 5), Parent = progress })
+	ui.WaveTask = label({ Text = "SURVIVE THE GRANDMAS", TextColor3 = THEME.Green, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.7, -10, 1, -10), Position = UDim2.fromOffset(10, 5), Parent = progress })
 	ui.WaveCounter = label({ Text = "0 / 0", TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.3, -10, 1, -8), Position = UDim2.new(0.7, 0, 0, 4), Parent = progress })
 	ui.WaveProgress = progress
 end
@@ -290,14 +294,117 @@ local function refreshWeapon()
 end
 
 local function refreshWave()
-	local wave = workspace:GetAttribute("Wave")
-	if wave then
-		ui.WaveLabel.Text = "WAVE " .. tostring(wave)
+	local matchState = workspace:GetAttribute("MatchState") or "Waiting"
+	local wave = tostring(workspace:GetAttribute("Wave") or 1)
+	local countdown = tostring(workspace:GetAttribute("Countdown") or 0) .. "s"
+	ui.WaveProgress.Visible = true
+	ui.WaveBanner.BackgroundColor3 = THEME.Green
+	if matchState == "Wave" then
+		ui.WaveLabel.Text = "WAVE " .. wave
+		ui.WaveTask.Text = "SURVIVE THE GRANDMAS"
 		ui.WaveCounter.Text = tostring(workspace:GetAttribute("WaveKills") or 0) .. " / " .. tostring(workspace:GetAttribute("WaveTotal") or 0)
-		ui.WaveProgress.Visible = true
+	elseif matchState == "Intermission" then
+		ui.WaveLabel.Text = "WAVE " .. wave
+		ui.WaveTask.Text = "GET READY!"
+		ui.WaveCounter.Text = countdown
+	elseif matchState == "Victory" or matchState == "Defeat" then
+		ui.WaveLabel.Text = if matchState == "Victory" then "VICTORY!" else "GAME OVER"
+		ui.WaveBanner.BackgroundColor3 = if matchState == "Victory" then THEME.Gold else THEME.Red
+		ui.WaveTask.Text = "NEXT MATCH IN"
+		ui.WaveCounter.Text = countdown
 	else
-		ui.WaveLabel.Text = "TEST ARENA"
+		ui.WaveLabel.Text = "WAITING..."
 		ui.WaveProgress.Visible = false
+	end
+end
+
+-- results screen ------------------------------------------------------------
+
+local RESULT_ROWS = {
+	{ Key = "WavesSurvived", Text = "WAVES SURVIVED" },
+	{ Key = "Kills", Text = "GRANDMAS ELIMINATED" },
+	{ Key = "CashEarned", Text = "CASH EARNED", Prefix = "$" },
+	{ Key = "TeamKills", Text = "TEAM KILLS" },
+	{ Key = "BestWave", Text = "BEST WAVE" },
+}
+
+local function buildResults(panel: Frame)
+	panel.Visible = false
+	panel.BackgroundColor3 = THEME.Dark
+	panel.BackgroundTransparency = 0.05
+	corner(14).Parent = panel
+	ui.ResultsStroke = stroke(4, THEME.Gold)
+	ui.ResultsStroke.Parent = panel
+
+	ui.ResultsTitle = label({ Text = "VICTORY!", TextColor3 = THEME.Gold, Size = UDim2.new(1, -40, 0, 64), Position = UDim2.fromOffset(20, 14), Parent = panel })
+	ui.ResultsValues = {}
+	for index, row in RESULT_ROWS do
+		local y = 88 + (index - 1) * 40
+		label({ Text = row.Text, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.68, -24, 0, 28), Position = UDim2.fromOffset(24, y), Parent = panel })
+		ui.ResultsValues[row.Key] = label({ Text = "0", TextColor3 = THEME.Gold, TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.32, -24, 0, 28), Position = UDim2.new(0.68, 0, 0, y), Parent = panel })
+	end
+	ui.ResultsCountdown = label({ Text = "NEXT MATCH IN 12", TextColor3 = Color3.fromRGB(190, 195, 210), Size = UDim2.new(1, -40, 0, 22), Position = UDim2.fromOffset(20, 292), Parent = panel })
+
+	local button = make("TextButton", {
+		Name = "PlayAgain",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -14),
+		Size = UDim2.fromOffset(240, 46),
+		BackgroundColor3 = THEME.Green,
+		Text = "",
+		AutoButtonColor = true,
+		Parent = panel,
+	}, { corner(10), stroke(3) }) :: TextButton
+	ui.PlayAgainLabel = label({ Text = "PLAY AGAIN", TextColor3 = THEME.White, Size = UDim2.new(1, -16, 1, -10), Position = UDim2.fromOffset(8, 5), Parent = button })
+	button.Activated:Connect(function()
+		HUDController.HideResults()
+	end)
+	ui.Results = panel
+end
+
+local resultsToken = 0
+function HUDController.HideResults()
+	resultsToken += 1
+	if ui.Results then
+		ui.Results.Visible = false
+	end
+	HUDController.ModalOpen = false
+end
+
+function HUDController.ShowResults(result)
+	resultsToken += 1
+	local token = resultsToken
+	local color = if result.Victory then THEME.Gold else THEME.Red
+	ui.ResultsTitle.Text = if result.Victory then "VICTORY!" else "GAME OVER"
+	ui.ResultsTitle.TextColor3 = color
+	ui.ResultsStroke.Color = color
+	ui.PlayAgainLabel.Parent.BackgroundColor3 = if result.Victory then THEME.Green else THEME.Red
+	for _, row in RESULT_ROWS do
+		ui.ResultsValues[row.Key].Text = (row.Prefix or "") .. tostring(result[row.Key] or 0)
+	end
+	ui.Results.Visible = true
+	HUDController.ModalOpen = true
+
+	task.spawn(function()
+		for t = result.NextMatchIn or 10, 1, -1 do
+			if token ~= resultsToken then
+				return
+			end
+			ui.ResultsCountdown.Text = "NEXT MATCH IN " .. t
+			task.wait(1)
+		end
+		if token == resultsToken then
+			HUDController.HideResults()
+		end
+	end)
+end
+
+-- status line (eliminated / spectating) ---------------------------------------
+
+function HUDController.SetStatus(text: string?)
+	ui.Status.Visible = text ~= nil
+	if text then
+		ui.Status.Text = text
 	end
 end
 
@@ -415,6 +522,18 @@ function HUDController.Init()
 	buildWaveBanner(top)
 	buildBottom(bottom, ammoRoot)
 	buildNotification(top)
+	buildResults(container("Results", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Vector2.new(440, 400)))
+	rescale()
+	ui.Status = label({
+		Name = "Status",
+		Text = "",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.66),
+		Size = UDim2.fromOffset(620, 34),
+		TextColor3 = Color3.fromRGB(255, 120, 120),
+		Visible = false,
+		Parent = root,
+	})
 
 	lastCash = player:GetAttribute("Cash") or 0
 	player:GetAttributeChangedSignal("Cash"):Connect(function()
@@ -431,11 +550,15 @@ function HUDController.Init()
 		end
 	end)
 	workspace.AttributeChanged:Connect(function(name)
-		if name == "Wave" or name == "WaveKills" or name == "WaveTotal" then
+		if name == "MatchState" or name == "Wave" or name == "WaveKills" or name == "WaveTotal" or name == "Countdown" then
 			refreshWave()
+		end
+		if name == "MatchState" and workspace:GetAttribute("MatchState") == "Intermission" then
+			HUDController.HideResults() -- new match started
 		end
 	end)
 	Remotes.Get("Notify").OnClientEvent:Connect(HUDController.Notify)
+	Remotes.Get("MatchResult").OnClientEvent:Connect(HUDController.ShowResults)
 
 	player.CharacterAdded:Connect(watchHealth)
 	if player.Character then

@@ -3,10 +3,6 @@
 
 return {
 	Debug = {
-		-- Spawns grandmas continuously so the combat prototype is playable before WaveService exists.
-		-- WaveService turns this off by setting workspace attribute "WavesActive" = true.
-		DevSpawner = true,
-		DevSpawnInterval = 1.5,
 		-- Everyone owns all weapons, so they can be tested before the shop exists (Phase 4 sets this false).
 		GiveAllWeapons = true,
 	},
@@ -17,6 +13,19 @@ return {
 		WalkSpeed = 16,
 		SpawnInvulnerability = 2, -- seconds of ForceField after spawning
 		StartingWeapon = "Pistol",
+	},
+
+	Waves = {
+		FirstIntermissionSeconds = 10,
+		IntermissionSeconds = 8,
+		ResultsSeconds = 12, -- results screen before the next match starts
+		CompletionBonus = 50, -- cash to every player when a wave is cleared ...
+		CompletionBonusPerWave = 10, -- ... plus this times the wave number
+		HealthGrowthPerWave = 0.08, -- enemy HP +8% per wave after the first
+		ExtraPlayerCountScale = 0.5, -- +50% enemies per extra player
+		ExtraPlayerBossHealthScale = 0.35, -- +35% boss HP per extra player
+		FinalBossHealthScale = 1.5, -- the last wave's boss is tougher
+		MinSpawnInterval = 0.25,
 	},
 
 	Enemies = {

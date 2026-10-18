@@ -15,22 +15,25 @@ MVP only: no pets, rebirths, crafting, trading, multiple worlds or deep progress
 ## Code layout (Rojo, `default.project.json`)
 | Folder | Becomes in Studio | Contents |
 |---|---|---|
-| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `Remotes`, `Signal` |
+| `src/shared` | `ReplicatedStorage.Shared` | `Config`, `WeaponDefinitions`, `EnemyDefinitions`, `WaveDefinitions`, `Remotes`, `Signal` |
 | `src/server` | `ServerScriptService.Server` | `Main.server.luau` (bootstrap), `Services/*`, `World/*` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` | `Main.client.luau`, `Effects`, `Controllers/*` |
 
 Server services (`src/server/Services`):
-- `PlayerService`: character setup, spawn shield, `GetLivingPlayers()`, signals `CharacterSpawned`, `PlayerDied`.
+- `PlayerService`: character setup, spawn shield, spawning (`CharacterAutoLoads` is off), `RespawnAndHealAll()`,
+  `GetLivingPlayers()`, signals `CharacterSpawned`, `PlayerDied`, `PlayerJoined`.
 - `EconomyService`: per-player match cash (`Reset`, `AddCash`, `TrySpend`). Replicated as player attribute `Cash`.
 - `EnemyService`: spawning, ONE central AI loop for all enemies, damage, kills (`EnemyKilled` signal), `ClearAll`.
 - `CombatService`: weapon ownership, equipped weapon, ammo, reload, fire-rate, server raycasts, damage.
-- `DevSpawner`: TEMPORARY test spawner until `WaveService` exists (off when workspace attr `WavesActive`).
+- `WaveService`: the single match loop: Waiting -> (Intermission -> Wave) x10 -> Victory/Defeat -> results
+  -> new match. Spawns waves gradually, scales by player count, bonuses, respawns, `MatchResult`, `MatchEnded` signal.
 
 World (`src/server/World`): `MapBuilder` (whole map from primitives at server start, spawn points),
 `EnemyFactory` (enemy models from welded parts).
 
 Client (`src/client`): `InputController` (keys -> signals), `GunController` (shoulder camera, aim, fire,
-effects), `HUDController` (all UI built in code), `Effects` (trails, flashes, damage numbers, sound hooks).
+effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
+while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
 ## Rojo workflow
 `rojo serve` in the repo root, then connect from the Rojo plugin in Studio. Code is edited on disk only;
@@ -46,7 +49,8 @@ Check before pushing: `rojo build -o build/test.rbxl` (must succeed) and, if ava
 - All tunable numbers live in `Config` / `*Definitions`. No magic numbers in services.
 - Remotes are declared only in `shared/Remotes.luau` (with their argument list in the header comment).
 - Server -> client state: prefer attributes (player: `Cash`, `Weapon`, `Ammo`, `MagSize`, `Reloading`,
-  `Owns<Id>`, `Alive`; workspace: `Wave`, `WaveKills`, `WaveTotal`, `EnemiesAlive`, `WavesActive`) over remotes.
+  `Owns<Id>`, `Alive`, `BestWave`; workspace: `MatchState`, `Wave`, `WaveKills`, `WaveTotal`, `Countdown`,
+  `EnemiesAlive`) over remotes.
 
 ## Client / server responsibilities and security
 - The server is authoritative for: cash, purchases, ownership, ammo, reloads, fire rate, hit detection,
@@ -69,7 +73,8 @@ Check before pushing: `rojo build -o build/test.rbxl` (must succeed) and, if ava
   slot, gun model and ammo work automatically. The shop sells it once ShopController exists.
 - **Enemy:** add data to `EnemyDefinitions`, add a builder to `BUILDERS` in `EnemyFactory`. New behaviors
   (ranged, boss) are branches in the `EnemyService` step loop keyed on `def.Behavior`.
-- **Wave:** (Phase 3) add a row to `WaveDefinitions`.
+- **Wave:** add a row to `WaveDefinitions` (enemy counts for one player, optional `Boss`, spawn interval).
+  Scaling numbers are in `Config.Waves`. Enemy types not in `EnemyDefinitions` fall back to NormalGrandma.
 
 ## How to test
 Claude cannot run Studio from a cloud session. Static checks: `rojo build`, `luau-lsp analyze`.
@@ -78,10 +83,11 @@ Report honestly what was tested and what was not.
 
 ## Implementation status
 - [x] Phase 1 Foundation: Rojo project, folders, configs, remotes, bootstrap, generated arena.
-- [x] Phase 2 First combat (written, NOT yet tested in Studio): Normal Grandma with central chase AI,
-  enemy + player health, pistol (all 3 weapons work in combat code), server-validated raycast shooting,
-  ammo/reload, kills, cash rewards, HUD (cash, health, ammo, slots, crosshair, hitmarker, damage numbers).
-- [ ] Phase 3 Waves: WaveService, countdowns, scaling, death/respawn per wave, victory/defeat.
+- [x] Phase 2 First combat (playtested by Alex 2026-10-18: works; fixed HUD scaling, aim, hotbar):
+  Normal Grandma with central chase AI, enemy + player health, 3 weapons, server-validated raycast shooting
+  with lag tolerance, ammo/reload, kills, cash, HUD (cash, health, ammo, slots, crosshair, hitmarker, damage numbers).
+- [x] Phase 3 Waves (written, NOT yet tested in Studio): WaveService, 10 waves, countdowns, player scaling,
+  completion bonus, stay-dead-until-next-wave + spectating, mid-wave join, victory/defeat results, auto restart.
 - [ ] Phase 4 Shop (ShopController + purchase remote), Slipper/Scooter grandmas, grenade, MEGA GRANDMA.
 - [ ] Phase 5 Polish: full HUD (shop left, grenade right), boss bar, mobile controls, sounds, map polish.
 - [ ] Phase 6 DataStore stats (DataService), leaderboard, gamepasses/products (PurchaseService).
@@ -92,7 +98,8 @@ Report honestly what was tested and what was not.
 - Enemies ignore obstacles and walk through park props (the arena is kept open on purpose).
 - No mobile fire/aim buttons yet (Phase 5). PC first.
 - No sounds yet: `Effects.PlaySound` is a hook.
-- Players respawn with the default Roblox respawn until WaveService controls respawning.
+- `Config.Debug.GiveAllWeapons = true`: everyone owns all guns until the shop exists (Phase 4).
+- Slipper/Scooter grandmas fall back to Normal Grandmas and the MEGA GRANDMA is skipped until Phase 4.
 
 ## Future (after MVP, only on request)
 More grandma types (flying, exploding, ninja, zombie), boss variants, barricades, turrets, airstrike,
