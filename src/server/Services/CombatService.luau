@@ -121,7 +121,7 @@ local function addHandIK(humanoid: Humanoid, name: string, chainRoot: Instance?,
 	end
 	local ik = Instance.new("IKControl")
 	ik.Name = name
-	ik.Type = Enum.IKControlType.Transform -- position AND rotation: the hand wraps the gun the right way
+	ik.Type = Enum.IKControlType.Position -- position only: forcing a hand rotation twisted the arms into knots
 	ik.ChainRoot = chainRoot
 	ik.EndEffector = hand
 	ik.Target = target
@@ -183,11 +183,13 @@ local function buildGun(player: Player, state: State)
 		end
 	end
 
-	-- in line with the right shoulder at shoulder height. Long guns: the end of the stock rests against the
-	-- front of the shoulder (nothing inside the body). Pistol: held out at half an arm's length.
+	-- Long guns: in line with the right shoulder at shoulder height, the end of the stock resting against the
+	-- front of the shoulder (nothing inside the body). Pistol: two-handed stance, arms almost straight,
+	-- just right of the chest's middle.
 	local twoHanded = back > 0.6
-	local forward = if twoHanded then torsoSize.Z * 0.5 + back + 0.05 else torsoSize.Z * 0.5 + armLength * 0.5
-	local hold = CFrame.new(torsoSize.X * 0.32, torsoSize.Y * 0.28, -forward)
+	local hold = if twoHanded
+		then CFrame.new(torsoSize.X * 0.32, torsoSize.Y * 0.28, -(torsoSize.Z * 0.5 + back + 0.05))
+		else CFrame.new(torsoSize.X * 0.12, torsoSize.Y * 0.3, -(torsoSize.Z * 0.5 + armLength * 0.85))
 	gun:PivotTo(torso.CFrame * hold)
 
 	-- the left hand holds as far forward as the left arm can reach (slides back toward the grip if not)
