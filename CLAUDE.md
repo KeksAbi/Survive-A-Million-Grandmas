@@ -117,7 +117,9 @@ Report honestly what was tested and what was not.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:
   keep arena props small and round-ish; long walls or narrow corridors would trap them.
 - Mobile controls are untested on a real phone (use Studio's device emulator first).
-- Sounds: `Config.Sounds` ids are empty until Alex picks audio in the Creator Store; the game is silent until then.
+- Sounds: our own synthesized sounds are in `assets/sounds/*.ogg` (made by `tools/sounds/generate.py`, numpy +
+  ffmpeg; rerun to tweak). Alex uploads them to Roblox (Asset Manager > Import) and the ids go into
+  `Config.Sounds`; until then the game is silent.
 - Admin panel (F2): wave buttons 1-10 (red = boss), skip wave, start now, +$, all guns, kill all, heal.
 - `Config.Debug.GiveAllWeapons` (false): set true to own every gun for testing.
 - In first person the own character (and gun) is hidden by Roblox; there is no viewmodel yet.

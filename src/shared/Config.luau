@@ -112,6 +112,7 @@ return {
 
 	-- Sound asset ids ("rbxassetid://123..."). Empty = silent. Pick sounds in the Creator Store
 	-- (Toolbox > Audio), check they are free to use, and paste the ids here. Music: instrumental only.
+	-- Our own sounds: assets/sounds/<Name>.ogg (tools/sounds/generate.py). Upload, then "rbxassetid://<id>".
 	Sounds = {
 		Fire_Pistol = "",
 		Fire_Shotgun = "",
