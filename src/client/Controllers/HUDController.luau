@@ -213,7 +213,7 @@ local function buildBottom(root: Frame, ammoRoot: Frame)
 		BackgroundTransparency = 1,
 		Parent = root,
 	}, {
-		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	ui.Slots = {}
 	for index, weaponId in WeaponData.Order do
@@ -323,7 +323,7 @@ local function refreshWeapon()
 	end
 	for id, slot in ui.Slots do
 		local owned = player:GetAttribute("Owns" .. id) == true
-		slot.Frame.BackgroundTransparency = if owned then 0 else 0.55
+		slot.Frame.Visible = owned -- a gun appears in the hotbar only once it is bought (the list re-centers)
 		slot.Stroke.Color = if id == weaponId then THEME.Gold else THEME.Black
 		slot.Stroke.Thickness = if id == weaponId then 4 else 3
 	end
