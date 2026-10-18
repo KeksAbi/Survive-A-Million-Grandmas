@@ -107,7 +107,28 @@ local function getLiveCharacter(player: Player): (Model?, Humanoid?)
 	return nil, nil
 end
 
--- Placeholder gun built from parts, welded to the right hand. Rebuilt on equip and respawn.
+-- The gun is welded to the chest (UpperTorso), pointing where the character faces, so it never depends on
+-- the avatar's arm shape. Both hands reach for it with IKControls (right hand on the grip, left hand on the
+-- pump / handguard). Long guns sit at the right shoulder; the pistol is held out at arm's length.
+-- Distances and the gun size follow the avatar's torso and arm size. Rebuilt on equip, skin and respawn.
+local function addHandIK(humanoid: Humanoid, name: string, chainRoot: Instance?, hand: Instance?, target: Attachment?)
+	local old = humanoid:FindFirstChild(name)
+	if old then
+		old:Destroy()
+	end
+	if not chainRoot or not hand or not target then
+		return
+	end
+	local ik = Instance.new("IKControl")
+	ik.Name = name
+	ik.Type = Enum.IKControlType.Position
+	ik.ChainRoot = chainRoot
+	ik.EndEffector = hand
+	ik.Target = target
+	ik.Weight = 1
+	ik.Parent = humanoid
+end
+
 local function buildGun(player: Player, state: State)
 	local character = player.Character
 	if not character then
@@ -117,37 +138,43 @@ local function buildGun(player: Player, state: State)
 	if old then
 		old:Destroy()
 	end
-
-	-- R15: raise the right arm forward (shoulder joint turned 90 degrees) and hold the gun along the arm,
-	-- so the muzzle sits in front of the shoulder, close to the camera's line of sight.
-	local hand = character:FindFirstChild("RightHand")
-	local handOffset = CFrame.new(0, -0.25, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-	local upperArm = character:FindFirstChild("RightUpperArm")
-	local shoulder = upperArm and upperArm:FindFirstChild("RightShoulder")
-	if shoulder and shoulder:IsA("Motor6D") and not shoulder:GetAttribute("Raised") then
-		shoulder.C0 = shoulder.C0 * CFrame.Angles(math.rad(90), 0, 0)
-		shoulder:SetAttribute("Raised", true)
-	end
-	if not hand then
-		hand = character:FindFirstChild("Right Arm") -- R6 fallback: gun at the hip
-		handOffset = CFrame.new(0, -1.05, -0.45)
-	end
-	if not hand then
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+	if not humanoid or not torso or not torso:IsA("BasePart") then
 		return
 	end
 
-	-- the shared model (imported mesh gun or part-built fallback), welded part by part to the hand
-	local gun = GunModels.Build(Weapons[state.Equipped], tostring(player:GetAttribute("Skin") or "Default"), hand.CFrame * handOffset)
+	-- avatar size: arm length (shoulder to hand) and torso size
+	local upperArm = character:FindFirstChild("RightUpperArm")
+	local lowerArm = character:FindFirstChild("RightLowerArm")
+	local armLength = if upperArm and lowerArm then upperArm.Size.Y + lowerArm.Size.Y else 2
+	local scale = math.clamp(armLength / 2.2, 0.55, 1.25)
+	local torsoSize = torso.Size
+
+	local weapon = Weapons[state.Equipped]
+	local twoHanded = weapon.Id ~= "Pistol"
+	local hold = if twoHanded
+		then CFrame.new(torsoSize.X * 0.22, torsoSize.Y * 0.15, -(torsoSize.Z * 0.5 + armLength * 0.35))
+		else CFrame.new(torsoSize.X * 0.08, torsoSize.Y * 0.2, -(torsoSize.Z * 0.5 + armLength * 0.8))
+
+	local gun = GunModels.Build(weapon, tostring(player:GetAttribute("Skin") or "Default"), torso.CFrame * hold)
+	if math.abs(scale - 1) > 0.02 then
+		gun:ScaleTo(scale)
+	end
 	for _, part in gun:GetDescendants() do
 		if part:IsA("BasePart") then
 			local weld = Instance.new("Weld")
-			weld.Part0 = hand
+			weld.Part0 = torso
 			weld.Part1 = part
-			weld.C0 = handOffset * (part:GetAttribute("Offset") or CFrame.identity)
+			weld.C0 = torso.CFrame:ToObjectSpace(part.CFrame)
 			weld.Parent = part
 		end
 	end
 	gun.Parent = character
+
+	local handle = gun:FindFirstChild("Handle")
+	addHandIK(humanoid, "RightHandIK", upperArm, character:FindFirstChild("RightHand"), handle and handle:FindFirstChild("RightGrip"))
+	addHandIK(humanoid, "LeftHandIK", character:FindFirstChild("LeftUpperArm"), character:FindFirstChild("LeftHand"), handle and handle:FindFirstChild("LeftGrip"))
 end
 
 local function cancelReload(state: State)

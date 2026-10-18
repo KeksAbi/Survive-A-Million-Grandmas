@@ -33,7 +33,8 @@ type PartSpec = { any } -- { name, size, offset, color role, shape? }
 -- Length (studs, back of the stock to the muzzle) an imported model is scaled to.
 local TARGET_LENGTH = { Pistol = 1.7, Shotgun = 4.3, AssaultRifle = 4.3 }
 
-local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3 } } = {
+-- Support = where the left hand holds (pump, handguard; for the pistol: cupping the right hand).
+local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3, Support: Vector3 } } = {
 	Pistol = {
 		Parts = {
 			{ "Slide", Vector3.new(0.32, 0.3, 1.45), CFrame.new(0, 0.2, -0.45), "Body" },
@@ -45,6 +46,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3 } } = {
 			{ "RearSight", Vector3.new(0.2, 0.08, 0.08), CFrame.new(0, 0.38, 0.18), "Dark" },
 		},
 		Muzzle = Vector3.new(0, 0.2, -1.36),
+		Support = Vector3.new(-0.12, -0.35, -0.05),
 	},
 	Shotgun = {
 		Parts = {
@@ -58,6 +60,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3 } } = {
 			{ "Bead", Vector3.new(0.07, 0.07, 0.07), CFrame.new(0, 0.31, -2.6), "Accent" },
 		},
 		Muzzle = Vector3.new(0, 0.17, -2.72),
+		Support = Vector3.new(0, -0.2, -1.2),
 	},
 	AssaultRifle = {
 		Parts = {
@@ -74,6 +77,7 @@ local DESIGNS: { [string]: { Parts: { PartSpec }, Muzzle: Vector3 } } = {
 			{ "Scope", Vector3.new(0.5, 0.2, 0.2), CFrame.new(0, 0.45, -0.25) * Z_AXIS, "Accent", Enum.PartType.Cylinder },
 		},
 		Muzzle = Vector3.new(0, 0.12, -2.82),
+		Support = Vector3.new(0, -0.1, -1.35),
 	},
 }
 
@@ -88,7 +92,8 @@ local function prepare(part: BasePart, offset: CFrame, base: CFrame)
 	part:SetAttribute("Offset", offset)
 end
 
-local function finish(model: Model, muzzle: Vector3, base: CFrame): Model
+-- Adds the invisible "Handle" at the grip with attachments: Muzzle, RightGrip (right hand), LeftGrip (left hand).
+local function finish(model: Model, muzzle: Vector3, support: Vector3, base: CFrame): Model
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
 	handle.Size = Vector3.new(0.1, 0.1, 0.1)
@@ -98,6 +103,14 @@ local function finish(model: Model, muzzle: Vector3, base: CFrame): Model
 	attachment.Name = "Muzzle"
 	attachment.Position = muzzle
 	attachment.Parent = handle
+	local right = Instance.new("Attachment")
+	right.Name = "RightGrip"
+	right.Position = Vector3.new(0, -0.25, 0.05) -- middle of the grip
+	right.Parent = handle
+	local left = Instance.new("Attachment")
+	left.Name = "LeftGrip"
+	left.Position = support
+	left.Parent = handle
 	handle.Parent = model
 	model.PrimaryPart = handle
 	model.Name = "Gun"
@@ -235,7 +248,10 @@ local function fromImported(template: Model, weapon, skin, base: CFrame): Model
 			prepare(part, gripSpace:ToObjectSpace(part.CFrame), base)
 		end
 	end
-	return finish(model, gripSpace:PointToObjectSpace(muzzleWorld), base)
+	-- left hand: under the barrel, 45% of the way to the muzzle (short guns: under the right hand)
+	local muzzleLocal = gripSpace:PointToObjectSpace(muzzleWorld)
+	local support = if -muzzleLocal.Z > 2.5 then Vector3.new(0, -0.15, muzzleLocal.Z * 0.45) else Vector3.new(-0.12, -0.35, -0.05)
+	return finish(model, muzzleLocal, support, base)
 end
 
 -- Builds the gun for `weapon` (a WeaponDefinitions entry) in a skin, placed at `origin` (default: world
@@ -276,7 +292,7 @@ function GunModels.Build(weapon, skinId: string?, origin: CFrame?): Model
 		prepare(part, offset, base)
 		part.Parent = model
 	end
-	return finish(model, design.Muzzle, base)
+	return finish(model, design.Muzzle, design.Support, base)
 end
 
 return GunModels

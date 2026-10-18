@@ -60,7 +60,9 @@ while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 Gun models (`shared/GunModels`): detailed mesh guns imported in Studio go in `ReplicatedStorage.WeaponModels`
 (not synced by Rojo; saved in the place file), one Model per weapon id with parts named `*Grip*` and `*Barrel*`;
 grip point, barrel direction, muzzle, scale (`TARGET_LENGTH`) and skin tint (`*_Body`/`*_Accent`) are computed.
-Missing -> part-built fallback guns. The held gun (CombatService) and the 3D icons (`client/GunIcon`, shop,
+Missing -> part-built fallback guns. Held gun: welded to the UpperTorso (points where the body faces,
+sized by arm length), hands placed by IKControls on the Handle attachments RightGrip/LeftGrip; no arm C0 edits.
+The held gun (CombatService) and the 3D icons (`client/GunIcon`, shop,
 hotbar, store) use the same model. Claude Design prompts: `docs/weapon-prompts.md`.
 
 ## Rojo workflow
