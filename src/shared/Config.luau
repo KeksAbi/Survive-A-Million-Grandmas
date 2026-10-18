@@ -82,9 +82,11 @@ return {
 		WalkSpeed = 16,
 		SpawnInvulnerability = 2, -- seconds of ForceField after spawning
 		StartingWeapon = "Pistol",
-		-- true = everyone spawns with the basic blocky Roblox body at standard size (own clothes, accessories,
-		-- colors and face kept), so guns and hands fit every player. Needs R15 (Game Settings > Avatar).
+		-- true = everyone spawns with the same body (own clothes, accessories, colors and face kept), so guns and
+		-- hands fit every player. The body (parts + proportions) is copied from BodyFromUserId's avatar;
+		-- 0 = the place owner's avatar. Needs R15 (File > Experience Settings > Avatar).
 		BasicBody = true,
+		BodyFromUserId = 0,
 	},
 
 	Waves = {

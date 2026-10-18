@@ -58,37 +58,56 @@ end
 local spawning: { [Player]: boolean } = {}
 local descriptions: { [Player]: HumanoidDescription } = {}
 
--- The player's own look on the basic body: body parts and body scales reset to the standard blocky R15,
--- clothes, accessories, colors and face kept. If Roblox cannot deliver the look (3 tries), the plain blocky
--- default body is used, so nobody ever spawns with a custom body.
+local BODY_PARTS = { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" }
+local BODY_SCALES = { "HeightScale", "WidthScale", "DepthScale", "HeadScale", "BodyTypeScale", "ProportionScale" }
+
+local function fetchDescription(userId: number, label: string): HumanoidDescription?
+	for attempt = 1, 3 do
+		local ok, result = pcall(function()
+			return Players:GetHumanoidDescriptionFromUserId(math.max(userId, 1))
+		end)
+		if ok and result then
+			return result
+		end
+		warn("[PlayerService] could not load the avatar of " .. label .. " (try " .. attempt .. "): " .. tostring(result))
+		task.wait(attempt)
+	end
+	return nil
+end
+
+-- The shared body: body parts and proportions of Config.Player.BodyFromUserId (0 = the place owner).
+local bodyTemplate: HumanoidDescription? = nil
+local function getBodyTemplate(): HumanoidDescription?
+	if bodyTemplate then
+		return bodyTemplate
+	end
+	local userId = Config.Player.BodyFromUserId
+	if userId == 0 and game.CreatorType == Enum.CreatorType.User then
+		userId = game.CreatorId
+	end
+	if userId <= 0 then
+		return nil
+	end
+	bodyTemplate = fetchDescription(userId, "the body template (user " .. userId .. ")")
+	return bodyTemplate
+end
+
+-- The player's own look (clothes, accessories, colors, face) on the shared body. If a look cannot be
+-- loaded the default look is used, so nobody ever spawns with a custom body.
 local function basicDescription(player: Player): HumanoidDescription
 	if descriptions[player] then
 		return descriptions[player]
 	end
-	local description: HumanoidDescription? = nil
-	for attempt = 1, 3 do
-		local ok, result = pcall(function()
-			return Players:GetHumanoidDescriptionFromUserId(math.max(player.UserId, 1))
-		end)
-		if ok and result then
-			description = result
-			break
-		end
-		warn("[PlayerService] could not load the avatar of " .. player.Name .. " (try " .. attempt .. "): " .. tostring(result))
-		task.wait(attempt)
+	local own = fetchDescription(player.UserId, player.Name)
+	local final = own or Instance.new("HumanoidDescription")
+	local template = getBodyTemplate()
+	for _, field in BODY_PARTS do
+		final[field] = if template then template[field] else 0
 	end
-	local cacheIt = description ~= nil
-	local final = description or Instance.new("HumanoidDescription")
-	for _, field in { "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
-		final[field] = 0
+	for _, field in BODY_SCALES do
+		final[field] = if template then template[field] elseif field == "BodyTypeScale" or field == "ProportionScale" then 0 else 1
 	end
-	final.HeightScale = 1
-	final.WidthScale = 1
-	final.DepthScale = 1
-	final.HeadScale = 1
-	final.BodyTypeScale = 0
-	final.ProportionScale = 0
-	if cacheIt then
+	if own then
 		descriptions[player] = final -- the plain fallback is not cached: the next spawn tries again
 	end
 	return final

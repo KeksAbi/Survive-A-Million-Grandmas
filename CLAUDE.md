@@ -21,7 +21,7 @@ MVP only: no pets, rebirths, crafting, trading, multiple worlds or deep progress
 
 Server services (`src/server/Services`):
 - `PlayerService`: character setup, spawn shield, spawning (`CharacterAutoLoads` is off; `Config.Player.BasicBody`:
-  own avatar on the standard blocky R15 body via HumanoidDescription), `RespawnAndHealAll()`,
+  own look on one shared body copied from `BodyFromUserId`'s avatar, 0 = place owner, via HumanoidDescription), `RespawnAndHealAll()`,
   `GetLivingPlayers()`, signals `CharacterSpawned`, `PlayerDied`, `PlayerJoined`.
 - `EconomyService`: per-player match cash (`Reset`, `AddCash`, `TrySpend`). Replicated as player attribute `Cash`.
 - `EnemyService`: spawning, ONE central AI loop for all enemies (behaviors Melee / Ranged slipper throw /
