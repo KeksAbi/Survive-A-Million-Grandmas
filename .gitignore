@@ -1,3 +1,8 @@
 *.rbxl.lock
 *.rbxlx.lock
 *.bak
+*.rbxl.bak
+/build/
+/sourcemap.json
+Packages/
+.DS_Store
