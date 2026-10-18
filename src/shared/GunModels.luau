@@ -190,7 +190,17 @@ local function fromImported(template: Model, weapon, skin, base: CFrame): Model
 	-- muzzle: front end of the barrel part (else the front of the whole box)
 	local muzzleWorld
 	if barrel then
-		muzzleWorld = barrel.Position + forward * halfExtent(barrel, forward)
+		-- the front-most "barrel" piece (e.g. Barrel_Metal + Barrel_FlashHider)
+		local best = -math.huge
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") and string.find(string.lower(part.Name), "barrel", 1, true) then
+				local front = (part.Position - gripPoint):Dot(forward) + halfExtent(part, forward)
+				if front > best then
+					best = front
+					muzzleWorld = gripPoint + forward * front + up * (part.Position - gripPoint):Dot(up)
+				end
+			end
+		end
 	else
 		local front = 0
 		for _, part in model:GetDescendants() do
