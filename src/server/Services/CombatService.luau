@@ -148,14 +148,15 @@ local function buildGun(player: Player, state: State)
 	local upperArm = character:FindFirstChild("RightUpperArm")
 	local lowerArm = character:FindFirstChild("RightLowerArm")
 	local armLength = if upperArm and lowerArm then upperArm.Size.Y + lowerArm.Size.Y else 2
-	local scale = math.clamp(armLength / 2.2, 0.55, 1.25)
+	local scale = Config.Combat.HeldGunScale * math.clamp(armLength / 2.2, 0.85, 1.2)
 	local torsoSize = torso.Size
 
 	local weapon = Weapons[state.Equipped]
 	local twoHanded = weapon.Id ~= "Pistol"
+	-- close to the body, so even short arms reach the grip and the pump / handguard
 	local hold = if twoHanded
-		then CFrame.new(torsoSize.X * 0.22, torsoSize.Y * 0.15, -(torsoSize.Z * 0.5 + armLength * 0.35))
-		else CFrame.new(torsoSize.X * 0.08, torsoSize.Y * 0.2, -(torsoSize.Z * 0.5 + armLength * 0.8))
+		then CFrame.new(torsoSize.X * 0.25, torsoSize.Y * 0.1, -(torsoSize.Z * 0.5 + armLength * 0.2))
+		else CFrame.new(torsoSize.X * 0.1, torsoSize.Y * 0.15, -(torsoSize.Z * 0.5 + armLength * 0.5))
 
 	local gun = GunModels.Build(weapon, tostring(player:GetAttribute("Skin") or "Default"), torso.CFrame * hold)
 	if math.abs(scale - 1) > 0.02 then
