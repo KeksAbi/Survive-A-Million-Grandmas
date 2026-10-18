@@ -112,25 +112,24 @@ return {
 
 	-- Sound asset ids ("rbxassetid://123..."). Empty = silent. Pick sounds in the Creator Store
 	-- (Toolbox > Audio), check they are free to use, and paste the ids here. Music: instrumental only.
-	-- Our own sounds: assets/sounds/<Name>.ogg (tools/sounds/generate.py). Upload, then "rbxassetid://<id>".
 	Sounds = {
-		Fire_Pistol = "rbxassetid://136563219707836",
-		Fire_Shotgun = "rbxassetid://71960567890632",
-		Fire_AssaultRifle = "rbxassetid://104000118075365",
-		Hit = "rbxassetid://78922258038418",
-		GrandmaPoof = "rbxassetid://101673651368522",
-		Explosion = "rbxassetid://78223732377247",
-		Stomp = "rbxassetid://71445529328623",
-		Reload = "rbxassetid://95883788354981",
-		WaveStart = "rbxassetid://120017931070244", -- notification kind "info"
-		WaveComplete = "rbxassetid://101730979040721", -- "good"
-		BossIncoming = "rbxassetid://86973417143296", -- "boss"
-		BossRoar = "rbxassetid://117850693441164", -- cutscene title slam
-		Thunder = "rbxassetid://73301053102587", -- cutscene lightning
-		Rumble = "rbxassetid://112270674486368", -- cutscene: boss rising out of the ground
-		Victory = "rbxassetid://97058164294009", -- "gold"
-		Error = "rbxassetid://124060291155897", -- "bad" (game over, not enough cash)
-		Music = "rbxassetid://74687648550075", -- looping background music
+		Fire_Pistol = "",
+		Fire_Shotgun = "",
+		Fire_AssaultRifle = "",
+		Hit = "",
+		GrandmaPoof = "",
+		Explosion = "",
+		Stomp = "",
+		Reload = "",
+		WaveStart = "", -- notification kind "info"
+		WaveComplete = "", -- "good"
+		BossIncoming = "", -- "boss"
+		BossRoar = "", -- cutscene title slam
+		Thunder = "", -- cutscene lightning
+		Rumble = "", -- cutscene: boss rising out of the ground
+		Victory = "", -- "gold"
+		Error = "", -- "bad" (game over, not enough cash)
+		Music = "", -- looping background music
 		Volume = 0.6,
 		MusicVolume = 0.25,
 	},
