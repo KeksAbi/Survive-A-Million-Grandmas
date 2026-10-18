@@ -140,6 +140,8 @@ Report honestly what was tested and what was not.
   pellets that land, no shooting with the muzzle through a wall, skin/grenade spam limits, receipt writes
   serialized with saves, mobile layout (grenade panel top right on touch, buttons above the jump button).
   Studio checklist for Alex: `docs/test-checklist.md` (not yet run).
+  Alex 2026-10-18: blocky R6 bodies, R6 gun hold (arms on the gun, no walk swing), first-person viewmodel,
+  shooting/ammo all confirmed working in Studio.
 
 ## Known limitations (now)
 - Not yet run in Studio; first playtest may show bugs.
