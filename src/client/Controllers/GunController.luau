@@ -1,5 +1,5 @@
 --!nonstrict
--- Mouse aiming for the top-down camera. The body turns to face the crosshair (= mouse cursor); bullets fly
+-- Free-mouse aiming. The body turns to face the crosshair (= mouse cursor); bullets fly
 -- toward it. The client draws effects immediately and sends Fire(origin, direction); the server re-checks
 -- everything and applies damage (CombatService).
 

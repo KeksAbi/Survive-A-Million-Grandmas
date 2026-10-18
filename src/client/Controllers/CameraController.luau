@@ -1,12 +1,10 @@
 --!nonstrict
--- Top-down follow camera: high above and behind the player at a fixed angle, never rotates.
--- Follows the own character, or (while dead) whatever SpectateController set as CameraSubject.
--- Mouse wheel zooms between Config.Camera.ZoomMin and ZoomMax.
+-- Keeps the normal Roblox camera (right-click drag to turn, mouse wheel to zoom) but starts every spawn
+-- further out and higher above the character (Config.Camera). Spectating works through CameraSubject.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 
@@ -15,49 +13,36 @@ local camera = workspace.CurrentCamera
 
 local CameraController = {}
 
-local zoom = 1
-local hasSnapped = false
-
-local function getFocusPart(): BasePart?
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid and humanoid.Health > 0 and humanoid.RootPart then
-		return humanoid.RootPart
-	end
-	local subject = camera.CameraSubject
-	if subject and subject:IsA("Humanoid") then
-		return subject.RootPart
-	elseif subject and subject:IsA("BasePart") then
-		return subject
-	end
-	return nil
-end
-
-local function update(dt: number)
-	camera.CameraType = Enum.CameraType.Scriptable
-	camera.FieldOfView = Config.Camera.FieldOfView
-	local focus = getFocusPart()
-	if not focus then
+local function setupCamera(character: Model)
+	local root = character:WaitForChild("HumanoidRootPart", 10)
+	if not root then
 		return
 	end
-	local target = focus.Position
-	local offset = Vector3.new(0, Config.Camera.Height, Config.Camera.Distance) * zoom
-	local goal = CFrame.lookAt(target + offset, target)
-	if not hasSnapped or (camera.CFrame.Position - goal.Position).Magnitude > 60 then
-		camera.CFrame = goal -- first frame or teleport: no slow glide across the map
-		hasSnapped = true
-	else
-		camera.CFrame = camera.CFrame:Lerp(goal, math.min(1, dt * Config.Camera.Smoothness))
-	end
+	camera.CameraType = Enum.CameraType.Custom
+
+	-- Force the start zoom for a moment (the camera scripts read it), then give the player the full range.
+	player.CameraMinZoomDistance = Config.Camera.StartZoom
+	player.CameraMaxZoomDistance = Config.Camera.StartZoom
+	RunService.RenderStepped:Wait()
+	RunService.RenderStepped:Wait()
+
+	-- Start looking down at StartPitch from behind the character; the camera scripts keep this angle.
+	local pitch = math.rad(Config.Camera.StartPitch)
+	local back = -root.CFrame.LookVector
+	local flatBack = Vector3.new(back.X, 0, back.Z).Unit
+	local offset = (flatBack * math.cos(pitch) + Vector3.new(0, math.sin(pitch), 0)) * Config.Camera.StartZoom
+	camera.CFrame = CFrame.lookAt(root.Position + offset, root.Position)
+
+	RunService.RenderStepped:Wait()
+	player.CameraMinZoomDistance = Config.Camera.MinZoom
+	player.CameraMaxZoomDistance = Config.Camera.MaxZoom
 end
 
 function CameraController.Init()
-	RunService:BindToRenderStep("TopDownCamera", Enum.RenderPriority.Camera.Value + 1, update)
-	UserInputService.InputChanged:Connect(function(input, processed)
-		if not processed and input.UserInputType == Enum.UserInputType.MouseWheel then
-			zoom = math.clamp(zoom - input.Position.Z * 0.1, Config.Camera.ZoomMin, Config.Camera.ZoomMax)
-		end
-	end)
+	player.CharacterAdded:Connect(setupCamera)
+	if player.Character then
+		task.spawn(setupCamera, player.Character)
+	end
 end
 
 return CameraController

@@ -8,13 +8,11 @@ return {
 	},
 
 	Camera = {
-		-- Top-down follow camera: offset from the player (studs). Pitch = atan(Height / Distance) ~ 55 deg.
-		Height = 34,
-		Distance = 24,
-		FieldOfView = 50,
-		ZoomMin = 0.7, -- mouse wheel zoom range (multiplies the offset)
-		ZoomMax = 1.4,
-		Smoothness = 12, -- higher = follows faster
+		-- Normal Roblox camera (right-click drag turns it, mouse wheel zooms), just starting further out and higher.
+		StartZoom = 28, -- studs from the character when spawning
+		StartPitch = 40, -- degrees looking down when spawning
+		MinZoom = 10,
+		MaxZoom = 50,
 	},
 
 	Player = {

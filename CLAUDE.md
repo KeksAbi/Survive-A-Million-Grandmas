@@ -31,8 +31,8 @@ Server services (`src/server/Services`):
 World (`src/server/World`): `MapBuilder` (whole map from primitives at server start, spawn points),
 `EnemyFactory` (enemy models from welded parts).
 
-Client (`src/client`): `InputController` (keys -> signals), `CameraController` (fixed-angle top-down follow
-camera, mouse-wheel zoom, follows the spectated player while dead), `GunController` (crosshair = mouse cursor,
+Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
+spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
 body faces the cursor, fire, effects), `HUDController` (all UI built in code, results screen), `SpectateController` (follow a teammate
 while dead), `Effects` (trails, flashes, damage numbers, sound hooks).
 
