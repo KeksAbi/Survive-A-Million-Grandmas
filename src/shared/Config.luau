@@ -110,6 +110,7 @@ return {
 
 	Combat = {
 		HeldGunScale = 1.25, -- size of the gun in the character's hands (1 = model size; adjusted to arm length)
+		LongGunTwist = 30, -- degrees the upper body turns right with a shotgun/rifle (bladed soldier stance)
 		MaxShotOriginDistance = 10, -- shot origin must be this close to the shooter's head (gun length + lag)
 		MaxRange = 300,
 		-- Fire-rate check uses a shot budget: one shot refills per FireCooldown, up to this many can be banked.

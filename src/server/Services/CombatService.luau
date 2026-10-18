@@ -142,6 +142,27 @@ local function elbowPole(torso: BasePart, name: string, position: Vector3): Atta
 	return pole :: Attachment
 end
 
+-- Bladed stance for long guns: the upper body turns right (left shoulder forward, stock shoulder back),
+-- the head turns back so it still looks forward. 0 = square stance (pistol). Joint C0s are restored from
+-- the original values stored on the joints.
+local function setStance(character: Model, twist: number)
+	local upperTorso = character:FindFirstChild("UpperTorso")
+	local head = character:FindFirstChild("Head")
+	local waist = upperTorso and upperTorso:FindFirstChild("Waist")
+	local neck = head and head:FindFirstChild("Neck")
+	for _, entry in { { waist, -twist }, { neck, twist } } do
+		local joint = entry[1]
+		if joint and joint:IsA("Motor6D") then
+			local base = joint:GetAttribute("BaseC0")
+			if typeof(base) ~= "CFrame" then
+				base = joint.C0
+				joint:SetAttribute("BaseC0", base)
+			end
+			joint.C0 = base * CFrame.Angles(0, entry[2], 0)
+		end
+	end
+end
+
 local function buildGun(player: Player, state: State)
 	local character = player.Character
 	if not character then
@@ -170,27 +191,33 @@ local function buildGun(player: Player, state: State)
 	if math.abs(size - 1) > 0.02 then
 		gun:ScaleTo(size)
 	end
+	local handle = gun:FindFirstChild("Handle") :: BasePart
 
 	-- how far the gun reaches back behind the hand (the stock), in grip space
-	local handle = gun:FindFirstChild("Handle") :: BasePart
 	local back = 0
 	for _, part in gun:GetDescendants() do
 		if part:IsA("BasePart") then
-			local local_ = handle.CFrame:ToObjectSpace(part.CFrame)
-			local halfZ = (math.abs(local_.RightVector.Z) * part.Size.X + math.abs(local_.UpVector.Z) * part.Size.Y
-				+ math.abs(local_.LookVector.Z) * part.Size.Z) / 2
-			back = math.max(back, local_.Position.Z + halfZ)
+			local cf = part.CFrame
+			local halfZ = (math.abs(cf.RightVector.Z) * part.Size.X + math.abs(cf.UpVector.Z) * part.Size.Y
+				+ math.abs(cf.LookVector.Z) * part.Size.Z) / 2
+			back = math.max(back, cf.Position.Z + halfZ)
 		end
 	end
-
-	-- Long guns: in line with the right shoulder at shoulder height, the end of the stock resting against the
-	-- front of the shoulder (nothing inside the body). Pistol: two-handed stance, arms almost straight,
-	-- just right of the chest's middle.
 	local twoHanded = back > 0.6
-	local hold = if twoHanded
-		then CFrame.new(torsoSize.X * 0.32, torsoSize.Y * 0.28, -(torsoSize.Z * 0.5 + back + 0.05))
-		else CFrame.new(torsoSize.X * 0.12, torsoSize.Y * 0.3, -(torsoSize.Z * 0.5 + armLength * 0.85))
-	gun:PivotTo(torso.CFrame * hold)
+
+	-- everything below is in the (turned) torso's own space: the gun is welded there
+	local twist = if twoHanded and torso.Name == "UpperTorso" then math.rad(Config.Combat.LongGunTwist) else 0
+	setStance(character, twist)
+	local gunTurn = CFrame.Angles(0, twist, 0) -- turns the gun back to the body's forward direction
+	local gunLocal
+	if twoHanded then
+		-- stock end in the shoulder pocket (front of the chest, right of center), barrel forward
+		local stockEnd = Vector3.new(torsoSize.X * 0.22, torsoSize.Y * 0.28, -torsoSize.Z * 0.5)
+		gunLocal = CFrame.new(stockEnd + gunTurn.LookVector * back) * gunTurn
+	else
+		-- pistol: square two-handed stance, arms almost straight, just right of the chest's middle
+		gunLocal = CFrame.new(torsoSize.X * 0.12, torsoSize.Y * 0.3, -(torsoSize.Z * 0.5 + armLength * 0.85))
+	end
 
 	-- the left hand holds as far forward as the left arm can reach (slides back toward the grip if not)
 	local leftGrip = handle:FindFirstChild("LeftGrip") :: Attachment?
@@ -199,20 +226,22 @@ local function buildGun(player: Player, state: State)
 	local leftHand = character:FindFirstChild("LeftHand")
 	if leftGrip and leftUpper and leftLower and leftHand then
 		local reach = (leftUpper.Size.Y + leftLower.Size.Y + leftHand.Size.Y * 0.5) * 0.95
-		local shoulder = torso.CFrame * Vector3.new(-torsoSize.X * 0.5, torsoSize.Y * 0.3, 0)
+		local shoulder = Vector3.new(-torsoSize.X * 0.5, torsoSize.Y * 0.3, 0)
 		local target = leftGrip.CFrame
-		while target.Position.Z < -0.3 and (handle.CFrame * target.Position - shoulder).Magnitude > reach do
+		while target.Position.Z < -0.3 and ((gunLocal * target).Position - shoulder).Magnitude > reach do
 			target = target + Vector3.new(0, 0, 0.05)
 		end
 		leftGrip.CFrame = target
 	end
+
 	for _, part in gun:GetDescendants() do
 		if part:IsA("BasePart") then
 			local weld = Instance.new("Weld")
 			weld.Part0 = torso
 			weld.Part1 = part
-			weld.C0 = torso.CFrame:ToObjectSpace(part.CFrame)
+			weld.C0 = gunLocal * part.CFrame -- the model was built around the grip at the origin
 			weld.Parent = part
+			part.CFrame = torso.CFrame * weld.C0
 		end
 	end
 	gun.Parent = character
@@ -221,7 +250,7 @@ local function buildGun(player: Player, state: State)
 	local rightPole = elbowPole(torso, "RightElbowPole", Vector3.new(torsoSize.X * 1.4, -torsoSize.Y * 0.6, 0.4))
 	local leftPole = elbowPole(torso, "LeftElbowPole", Vector3.new(-torsoSize.X * 0.3, -torsoSize.Y * 1.4, -0.6))
 	addHandIK(humanoid, "RightHandIK", upperArm, character:FindFirstChild("RightHand"), handle:FindFirstChild("RightGrip"), rightPole)
-	addHandIK(humanoid, "LeftHandIK", character:FindFirstChild("LeftUpperArm"), leftHand, leftGrip, leftPole)
+	addHandIK(humanoid, "LeftHandIK", leftUpper, leftHand, leftGrip, leftPole)
 end
 
 local function cancelReload(state: State)
