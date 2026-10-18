@@ -22,7 +22,9 @@ type State = {
 	Owned: { [string]: boolean },
 	Equipped: string,
 	Ammo: { [string]: number },
-	NextFire: number,
+	FireCredit: number,
+	CreditTime: number,
+	SwapReadyAt: number,
 	Reloading: boolean,
 	ReloadToken: number,
 	WindowStart: number,
@@ -59,7 +61,9 @@ local function newState(): State
 		Owned = owned,
 		Equipped = Config.Player.StartingWeapon,
 		Ammo = ammo,
-		NextFire = 0,
+		FireCredit = 1,
+		CreditTime = 0,
+		SwapReadyAt = 0,
 		Reloading = false,
 		ReloadToken = 0,
 		WindowStart = 0,
@@ -193,6 +197,19 @@ local function startReload(player: Player, state: State)
 	end)
 end
 
+-- Shot budget: refills 1 per FireCooldown, capped at FireBurstAllowance. Spends 1 per shot.
+-- Caps the average fire rate while accepting shots that arrive bunched together.
+local function takeShotCredit(state: State, cooldown: number, now: number): boolean
+	local credit = math.min(Config.Combat.FireBurstAllowance, state.FireCredit + (now - state.CreditTime) / cooldown)
+	state.CreditTime = now
+	if credit < 1 then
+		state.FireCredit = credit
+		return false
+	end
+	state.FireCredit = credit - 1
+	return true
+end
+
 local function getRayParams(): RaycastParams
 	local include = { EnemyService.Folder }
 	local map = workspace:FindFirstChild("Map")
@@ -232,14 +249,16 @@ local function onFire(player: Player, origin: any, direction: any)
 
 	local weapon = Weapons[state.Equipped]
 	local now = os.clock()
-	if state.Reloading or now < state.NextFire - Config.Combat.FireToleranceSeconds then
+	if state.Reloading or now < state.SwapReadyAt then
 		return
 	end
 	if state.Ammo[weapon.Id] <= 0 then
 		startReload(player, state)
 		return
 	end
-	state.NextFire = now + weapon.FireCooldown
+	if not takeShotCredit(state, weapon.FireCooldown, now) then
+		return
+	end
 	state.Ammo[weapon.Id] -= 1
 
 	-- hit detection: one ray per pellet, damage summed per enemy
@@ -307,7 +326,9 @@ local function onEquip(player: Player, weaponId: any)
 	end
 	cancelReload(state)
 	state.Equipped = weaponId
-	state.NextFire = math.max(state.NextFire, os.clock() + 0.2) -- small swap delay
+	state.SwapReadyAt = os.clock() + Config.Combat.SwapDelay
+	state.FireCredit = 1 -- the new weapon starts with one shot ready
+	state.CreditTime = state.SwapReadyAt
 	publish(player, state)
 	buildGun(player, state)
 end

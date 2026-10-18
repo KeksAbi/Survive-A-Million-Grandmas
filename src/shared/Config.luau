@@ -38,7 +38,10 @@ return {
 	Combat = {
 		MaxShotOriginDistance = 14, -- shot origin must be this close to the shooter's head
 		MaxRange = 300,
-		FireToleranceSeconds = 0.06, -- allowed early fire (network jitter)
+		-- Fire-rate check uses a shot budget: one shot refills per FireCooldown, up to this many can be banked.
+		-- Shots often arrive in clumps over the network; a strict gap check would throw most rifle shots away.
+		FireBurstAllowance = 2,
+		SwapDelay = 0.2, -- seconds after switching weapons before the new one can fire
 		MaxRemotesPerSecond = 40, -- per player, all combat remotes together
 		-- Lag forgiveness: a shot that passes this close to an enemy's body still hits. Enemies on the
 		-- server are slightly ahead of what the client sees, so without this near-perfect shots miss.

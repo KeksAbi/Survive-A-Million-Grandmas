@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local WeaponData = require(Shared.WeaponDefinitions)
 
@@ -168,6 +169,7 @@ function GunController.Init()
 		end
 		if player:GetAttribute("Owns" .. weaponId) then
 			equipRemote:FireServer(weaponId)
+			nextFire = os.clock() + Config.Combat.SwapDelay -- same swap delay the server enforces
 		else
 			local weapon = WeaponData.Weapons[weaponId]
 			HUDController.Notify(string.upper(weapon.Name) .. " COSTS $" .. tostring(weapon.Cost), "bad")
