@@ -32,6 +32,7 @@ return {
 		MaxActive = 60, -- hard cap of simultaneously alive enemies
 		UpdateRate = 20, -- movement/AI ticks per second (one loop for ALL enemies)
 		SeparationRadius = 2.2, -- enemies closer than this push each other apart
+		BodyRadius = 1.3, -- for walking around map obstacles (fountain, benches, trees...)
 		BobHeight = 0.25, -- cosmetic walking bob
 	},
 

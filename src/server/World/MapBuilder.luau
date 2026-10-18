@@ -13,6 +13,18 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local MapBuilder = {}
 
 local spawnPositions: { Vector3 } = {}
+
+-- Solid things grandmas must walk around, as circles on the ground (EnemyService pushes them out).
+export type Obstacle = { Position: Vector3, Radius: number }
+local obstacles: { Obstacle } = {}
+
+local function addObstacle(position: Vector3, radius: number)
+	local limit = Config.Map.WallDistance
+	if math.abs(position.X) > limit or math.abs(position.Z) > limit then
+		return -- outside the arena: enemies never get there
+	end
+	table.insert(obstacles, { Position = Vector3.new(position.X, 0, position.Z), Radius = radius })
+end
 local rng = Random.new(1337) -- fixed seed: same map every server
 
 local COLORS = {
@@ -77,6 +89,7 @@ local function tree(parent: Instance, position: Vector3)
 	model.Name = "Tree"
 	local height = rng:NextNumber(5, 8)
 	cylinder(model, "Trunk", height, 1.4, position, COLORS.Trunk)
+	addObstacle(position, 0.9)
 	local leaves = COLORS.Leaves[rng:NextInteger(1, #COLORS.Leaves)]
 	ball(model, "Leaves", rng:NextNumber(7, 9), position + Vector3.new(0, height + 2.5, 0), leaves)
 	ball(model, "Leaves2", rng:NextNumber(5, 6), position + Vector3.new(rng:NextNumber(-1.5, 1.5), height + 5.5, rng:NextNumber(-1.5, 1.5)), leaves)
@@ -84,13 +97,16 @@ local function tree(parent: Instance, position: Vector3)
 end
 
 local function bush(parent: Instance, position: Vector3)
-	ball(parent, "Bush", rng:NextNumber(3, 4.5), position + Vector3.new(0, 1.2, 0), COLORS.Leaves[rng:NextInteger(1, #COLORS.Leaves)])
+	local size = rng:NextNumber(3, 4.5)
+	ball(parent, "Bush", size, position + Vector3.new(0, 1.2, 0), COLORS.Leaves[rng:NextInteger(1, #COLORS.Leaves)])
+	addObstacle(position, size * 0.45)
 end
 
 local function lamp(parent: Instance, position: Vector3)
 	local model = Instance.new("Model")
 	model.Name = "StreetLamp"
 	cylinder(model, "Pole", 11, 0.5, position, Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
+	addObstacle(position, 0.5)
 	block(model, "Head", Vector3.new(1.6, 0.6, 1.6), CFrame.new(position + Vector3.new(0, 11.3, 0)), Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
 	local bulb = ball(model, "Bulb", 1.3, position + Vector3.new(0, 10.6, 0), Color3.fromRGB(255, 235, 170))
 	bulb.Material = Enum.Material.Neon
@@ -105,6 +121,7 @@ end
 local function bench(parent: Instance, cframe: CFrame)
 	local model = Instance.new("Model")
 	model.Name = "Bench"
+	addObstacle(cframe.Position, 2.8)
 	local wood = Color3.fromRGB(150, 95, 50)
 	local iron = Color3.fromRGB(40, 40, 45)
 	block(model, "Seat", Vector3.new(6, 0.4, 1.8), cframe * CFrame.new(0, 1.6, 0), wood)
@@ -224,6 +241,7 @@ local function buildPark(map: Folder)
 	local park = folder(map, "Park")
 	-- fountain
 	cylinder(park, "FountainBase", 1.6, 18, Vector3.new(0, 0, 0), COLORS.Sidewalk, Enum.Material.Concrete)
+	addObstacle(Vector3.zero, 9.2)
 	local water = cylinder(park, "FountainWater", 0.3, 15.5, Vector3.new(0, 1.4, 0), COLORS.Water)
 	water.Material = Enum.Material.Glass
 	water.Transparency = 0.2
@@ -364,6 +382,10 @@ function MapBuilder.Build(): Folder
 	setupLighting()
 	map.Parent = workspace
 	return map
+end
+
+function MapBuilder.GetObstacles(): { Obstacle }
+	return obstacles
 end
 
 function MapBuilder.GetSpawnPositions(): { Vector3 }

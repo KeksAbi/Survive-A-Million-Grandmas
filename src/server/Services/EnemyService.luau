@@ -13,6 +13,7 @@ local Signal = require(Shared.Signal)
 local EnemyDefinitions = require(Shared.EnemyDefinitions)
 
 local EnemyFactory = require(script.Parent.Parent.World.EnemyFactory)
+local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local PlayerService = require(script.Parent.PlayerService)
 local EconomyService = require(script.Parent.EconomyService)
 
@@ -162,6 +163,30 @@ function EnemyService.ClearAll()
 	publishCount()
 end
 
+-- Keeps `position` out of every obstacle circle. When the target is behind an obstacle, adds a sideways
+-- step so the enemy slides around it instead of pressing into its front.
+local function avoidObstacles(enemy: Enemy, position: Vector3, toTarget: Vector3, stepDistance: number): Vector3
+	local bodyRadius = Config.Enemies.BodyRadius
+	for _, obstacle in MapBuilder.GetObstacles() do
+		local away = position - obstacle.Position
+		local minDistance = obstacle.Radius + bodyRadius
+		local distance = away.Magnitude
+		if distance < minDistance then
+			local normal = if distance > 0.001 then away / distance else Vector3.new(1, 0, 0)
+			position = obstacle.Position + normal * minDistance
+			if toTarget.Magnitude > 0.01 and normal:Dot(toTarget.Unit) < -0.2 then
+				local tangent = Vector3.new(-normal.Z, 0, normal.X)
+				local side = tangent:Dot(toTarget)
+				if math.abs(side) < 0.01 then
+					side = if enemy.Id % 2 == 0 then 1 else -1 -- dead ahead: split left/right
+				end
+				position += tangent * (if side > 0 then 1 else -1) * stepDistance
+			end
+		end
+	end
+	return position
+end
+
 local accumulator = 0
 
 local function step(dt: number)
@@ -232,7 +257,7 @@ local function step(dt: number)
 			move += push * math.min(1, 6 * stepDt)
 		end
 
-		local newPos = pos + move
+		local newPos = avoidObstacles(enemy, pos + move, toTarget, def.Speed * stepDt)
 		newPos = Vector3.new(math.clamp(newPos.X, -wall, wall), 0, math.clamp(newPos.Z, -wall, wall))
 		local moved = (newPos - pos).Magnitude > 0.001
 		enemy.Position = newPos

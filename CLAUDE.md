@@ -95,7 +95,8 @@ Report honestly what was tested and what was not.
 
 ## Known limitations (now)
 - Not yet run in Studio; first playtest may show bugs.
-- Enemies ignore obstacles and walk through park props (the arena is kept open on purpose).
+- Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:
+  keep arena props small and round-ish; long walls or narrow corridors would trap them.
 - No mobile fire/aim buttons yet (Phase 5). PC first.
 - No sounds yet: `Effects.PlaySound` is a hook.
 - `Config.Debug.GiveAllWeapons = true`: everyone owns all guns until the shop exists (Phase 4).
