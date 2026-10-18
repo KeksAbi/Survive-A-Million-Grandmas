@@ -16,12 +16,12 @@ return {
 	-- Price is only shown as a fallback; the real price comes from Roblox.
 	Monetization = {
 		Passes = {
-			DoubleCash = { Id = 0, Price = 149, Name = "2X CASH", Description = "Double cash from every grandma" },
-			VIP = { Id = 0, Price = 299, Name = "VIP", Description = "VIP tag, golden gun, golden sparkles" },
-			SkinPack = { Id = 0, Price = 99, Name = "SKIN PACK", Description = "3 extra gun skins" },
+			DoubleCash = { Id = 2039865868, Price = 149, Name = "2X CASH", Description = "Double cash from every grandma" },
+			VIP = { Id = 2036092022, Price = 299, Name = "VIP", Description = "VIP tag, golden gun, golden sparkles" },
+			SkinPack = { Id = 2037814053, Price = 99, Name = "SKIN PACK", Description = "3 extra gun skins" },
 		},
 		Products = {
-			Revive = { Id = 0, Price = 29, Name = "REVIVE" }, -- one revive credit (used right away if dead)
+			Revive = { Id = 3719683078, Price = 29, Name = "REVIVE" }, -- one revive credit (used right away if dead)
 		},
 		RevivesPerWave = 1, -- revive credits usable per player per wave
 	},

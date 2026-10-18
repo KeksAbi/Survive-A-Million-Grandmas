@@ -119,7 +119,7 @@ Report honestly what was tested and what was not.
 - [x] Phase 4: shop (left panel, keys 1-3 buy/equip), grenades (G, $60,
   max 5), Slipper Grandma (ranged slipper arcs), Scooter Grandma, MEGA GRANDMA (stomp + boss bars).
 - [x] Phase 6 (written, NOT yet tested in Studio): DataService stats + leaderstats, PurchaseService passes /
-  Revive product / skins (`SkinDefinitions`), StoreController. Pass/product ids still 0 (Alex creates them).
+  Revive product / skins (`SkinDefinitions`), StoreController. Pass/product ids set in Config.Monetization (created by Alex).
   Alex 2026-10-18: stats save and load across sessions in Studio (API access on). Purchases still untested.
 - [ ] Phase 7 Testing and optimization.
 
