@@ -55,15 +55,35 @@ local function getMuzzlePosition(): Vector3?
 	return head and head.Position
 end
 
--- Where the shot should go. The camera ray through the mouse cursor:
+-- First person = the camera is (almost) inside the head. Roblox then locks the mouse to the screen center.
+local function isFirstPerson(): boolean
+	local character = player.Character
+	local head = character and character:FindFirstChild("Head")
+	return head ~= nil and (camera.CFrame.Position - head.Position).Magnitude < 1.5
+end
+
+-- Screen point to aim through: the center in first person, otherwise the mouse cursor.
+local function getAimScreenPoint(): Vector2
+	if isFirstPerson() then
+		return camera.ViewportSize / 2
+	end
+	return UserInputService:GetMouseLocation()
+end
+
+-- Where the shot should go.
+-- First person: exactly what the screen center looks at (up/down included), like an FPS.
+-- Otherwise, the camera ray through the mouse cursor:
 --   hits an enemy  -> aim exactly at that point;
 --   hits anything else (ground, props) -> aim at that spot raised to `muzzleHeight`, so the bullet flies
 --   level toward the cursor and keeps going instead of diving into the ground.
 local function getAimPoint(muzzleHeight: number): Vector3
 	aimParams.FilterDescendantsInstances = { player.Character, Effects.Folder }
-	local mouse = UserInputService:GetMouseLocation()
-	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
+	local screenPoint = getAimScreenPoint()
+	local ray = camera:ViewportPointToRay(screenPoint.X, screenPoint.Y)
 	local result = workspace:Raycast(ray.Origin, ray.Direction * 500, aimParams)
+	if isFirstPerson() then
+		return if result then result.Position else ray.Origin + ray.Direction * 500
+	end
 	if result then
 		local enemies = workspace:FindFirstChild("Enemies")
 		if enemies and result.Instance:IsDescendantOf(enemies) then
@@ -118,7 +138,7 @@ local function tryFire()
 	Effects.MuzzleFlash(origin)
 	Effects.PlaySound("Fire_" .. weapon.Id, origin)
 	local distance = weapon.Range -- level shots keep flying past the cursor
-	if aimPoint.Y ~= origin.Y then
+	if aimPoint.Y ~= origin.Y or isFirstPerson() then
 		distance = math.min((aimPoint - origin).Magnitude, weapon.Range) -- aimed at an enemy: stop there
 	end
 	for _ = 1, weapon.Pellets do
@@ -148,7 +168,7 @@ local function aimStep()
 		return
 	end
 	UserInputService.MouseIconEnabled = false
-	HUDController.SetCrosshair(UserInputService:GetMouseLocation())
+	HUDController.SetCrosshair(getAimScreenPoint())
 
 	local aim = getAimPoint(root.Position.Y)
 	local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)

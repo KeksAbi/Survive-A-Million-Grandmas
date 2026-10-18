@@ -11,7 +11,7 @@ return {
 		-- Normal Roblox camera (right-click drag turns it, mouse wheel zooms), just starting further out and higher.
 		StartZoom = 28, -- studs from the character when spawning
 		StartPitch = 40, -- degrees looking down when spawning
-		MinZoom = 10,
+		MinZoom = 0.5, -- fully zoomed in = first person (FPS aiming, crosshair locked to the center)
 		MaxZoom = 50,
 	},
 
