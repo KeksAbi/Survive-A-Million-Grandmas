@@ -117,7 +117,7 @@ end
 
 ------------------------------------------------------------------------------------------------------ playground
 
--- Slide tower shared by both slides: four posts, a deck, side rails, a spire roof and a ladder at the back (+Z).
+-- Slide tower shared by both slides: four posts, a deck, side rails, a cone roof with a ball and a ladder at the back (+Z).
 -- The deck is centered on `cframe`; its front edge is at local z = -1.7.
 local function slideTower(parent: Instance, cframe: CFrame, roof: Color3)
 	for _, x in { -1.5, 1.5 } do
@@ -128,7 +128,8 @@ local function slideTower(parent: Instance, cframe: CFrame, roof: Color3)
 	end
 	K.Block(parent, Vector3.new(3.4, 0.4, 3.4), cframe * CFrame.new(0, 5.0, 0), YELLOW)
 	K.Ink(parent, Vector3.new(3.45, 0.08, 3.45), cframe * CFrame.new(0, 4.78, 0))
-	K.Spire(parent, 4.2, 2.0, cframe * CFrame.new(0, 6.6, 0), roof, true)
+	K.Cone(parent, 4.2, 2.0, cframe * CFrame.new(0, 6.6, 0), roof, true, 8)
+	K.Ball(parent, 0.7, (cframe * CFrame.new(0, 8.6, 0)).Position, roof, true)
 	for _, x in { -0.7, 0.7 } do
 		bar(parent, (cframe * CFrame.new(x, 0, 3.6)).Position, (cframe * CFrame.new(x, 5.2, 1.6)).Position, 0.25, BLUE, true)
 	end

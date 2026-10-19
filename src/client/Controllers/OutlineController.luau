@@ -8,6 +8,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 
@@ -51,10 +52,17 @@ function OutlineController.Init()
 		return
 	end
 
-	for _, group in CollectionService:GetTagged(comic.OutlineTag) do
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local function outlineGroup(group: Instance)
+		if touchOnly and table.find(comic.SkipOutlinesOnTouch, group.Name) then
+			return
+		end
 		outline(group)
 	end
-	CollectionService:GetInstanceAddedSignal(comic.OutlineTag):Connect(outline)
+	for _, group in CollectionService:GetTagged(comic.OutlineTag) do
+		outlineGroup(group)
+	end
+	CollectionService:GetInstanceAddedSignal(comic.OutlineTag):Connect(outlineGroup)
 
 	if comic.OutlineEnemies then
 		task.spawn(function()

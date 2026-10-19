@@ -88,6 +88,9 @@ local BUILDERS: { [string]: Builder } = {
 	UmbrellaTable = function(p, cf)
 		return YardProps.PatioTable(p, cf, true)
 	end,
+	CafeTable = function(p, cf)
+		return YardProps.CafeTable(p, cf, nil, true)
+	end,
 	KettleGrill = function(p, cf)
 		return YardProps.KettleGrill(p, cf)
 	end,
@@ -207,7 +210,7 @@ local BUILDERS: { [string]: Builder } = {
 }
 
 PropLibrary.Categories = {
-	Residential = { "Mailbox", "HoseReel", "LawnMower", "Wheelbarrow", "Shovel", "Rake", "Pitchfork", "GardenTools", "FlowerPot", "CeramicPot", "WateringCan", "Gnome", "Flamingo", "OutdoorChair", "PatioTable", "UmbrellaTable", "KettleGrill", "TrashBin", "RecyclingBin", "WelcomeSign", "HangingBasket", "Doghouse", "Birdhouse", "Crate" },
+	Residential = { "Mailbox", "HoseReel", "LawnMower", "Wheelbarrow", "Shovel", "Rake", "Pitchfork", "GardenTools", "FlowerPot", "CeramicPot", "WateringCan", "Gnome", "Flamingo", "OutdoorChair", "PatioTable", "UmbrellaTable", "CafeTable", "KettleGrill", "TrashBin", "RecyclingBin", "WelcomeSign", "HangingBasket", "Doghouse", "Birdhouse", "Crate" },
 	Street = { "NewspaperBox", "Hydrant", "StopSign", "TrafficCone", "AFrameBarrier", "JerseyBarrier", "GarbageBags", "Bench", "TrashCan", "UtilityBox", "Manhole", "OpenManhole", "Lamp", "StreetLight", "BikeRack", "Bicycle", "Planter" },
 	Grandma = { "YarnBall", "GiantYarnBall", "KnittingNeedles", "KnittingBasket", "Slippers", "RockingChair", "MobilityScooter", "CookieStall", "BingoSign", "RetirementBillboard", "GrandmaStatue", "ShoppingCart" },
 }
@@ -228,7 +231,7 @@ function PropLibrary.Build(name: string, parent: Instance, cframe: CFrame, rng: 
 end
 
 -- Showcase layout: footprint width per prop (default 5) and lifts for props that hang from a hook.
-local WIDTHS = { CookieStall = 12, RetirementBillboard = 24, GiantYarnBall = 9, KnittingNeedles = 9, JerseyBarrier = 7, AFrameBarrier = 6, Doghouse = 6, PatioTable = 6, UmbrellaTable = 7, GardenTools = 7, HoseReel = 6, BikeRack = 6, BingoSign = 9, ShoppingCart = 4, MobilityScooter = 6, GarbageBags = 4, StreetLight = 6 }
+local WIDTHS = { CookieStall = 12, RetirementBillboard = 24, GiantYarnBall = 9, KnittingNeedles = 9, JerseyBarrier = 7, AFrameBarrier = 6, Doghouse = 6, PatioTable = 6, UmbrellaTable = 7, CafeTable = 6, GardenTools = 7, HoseReel = 6, BikeRack = 6, BingoSign = 9, ShoppingCart = 4, MobilityScooter = 6, GarbageBags = 4, StreetLight = 6 }
 local LIFTS = { HangingBasket = 4.5 }
 
 -- One of every prop in three labelled rows, each prop facing -Z of `origin` (default: the world origin).

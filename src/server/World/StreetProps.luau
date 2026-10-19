@@ -51,7 +51,7 @@ function StreetProps.Lamp(parent: Instance, position: Vector3): Model
 			K.Ink(model, Vector3.new(0.18, 1.5, 0.18), at(12.2) * CFrame.new(x, 0, z))
 		end
 	end
-	K.Spire(model, 1.9, 1.1, at(12.95), dark, true)
+	K.Cone(model, 1.9, 1.1, at(12.95), dark, true, 8)
 	K.Block(model, Vector3.one * 0.35, at(14.15) * CFrame.Angles(math.pi / 4, 0, math.pi / 4), dark, true)
 	local light = Instance.new("PointLight")
 	light.Range = 18
@@ -83,20 +83,26 @@ function StreetProps.Bench(parent: Instance, cframe: CFrame): Model
 	return model
 end
 
--- Eight-sided park trash can with ribs and a lid.
+-- Park trash can: plinth, eight-sided slatted body (ink slat lines) with two dark hoops, a rim, and a domed lid
+-- with a dark throw-in slot on the front. The body is solid.
 function StreetProps.TrashCan(parent: Instance, position: Vector3): Model
 	local model = K.Model("TrashCan")
-	local green = Color3.fromRGB(60, 150, 90)
+	local green = rgb(60, 150, 90)
 	local function at(y: number): CFrame
 		return CFrame.new(position + Vector3.new(0, y, 0))
 	end
-	K.Block(model, Vector3.new(1.6, 2.4, 1.6), at(1.2), green)
-	K.Block(model, Vector3.new(1.6, 2.4, 1.6), at(1.2) * CFrame.Angles(0, math.pi / 4, 0), green, true)
-	for _, y in { 0.5, 2.0 } do
-		K.Block(model, Vector3.new(1.75, 0.25, 1.75), at(y) * CFrame.Angles(0, math.pi / 8, 0), K.Dark(green), true)
+	K.Octagon(model, 1.8, 0.2, at(0.1), C.Stone, true)
+	K.Octagon(model, 1.6, 2.3, at(1.35), green)
+	for i = 0, 3 do
+		K.Ink(model, Vector3.new(0.07, 1.9, 1.64), at(1.4) * CFrame.Angles(0, i * math.pi / 4, 0))
 	end
-	K.Block(model, Vector3.new(1.95, 0.35, 1.95), at(2.55) * CFrame.Angles(0, math.pi / 8, 0), K.Dark(green), true)
-	K.Block(model, Vector3.new(0.6, 0.3, 0.6), at(2.85), C.MetalDark, true)
+	for _, y in { 0.6, 2.05 } do
+		K.Disc(model, 1.78, 0.2, position + Vector3.new(0, y, 0), K.Dark(green), true)
+	end
+	K.Disc(model, 1.9, 0.22, position + Vector3.new(0, 2.5, 0), K.Dark(green), true)
+	K.Cone(model, 1.75, 0.7, at(2.72), green, true, 8)
+	K.Disc(model, 0.6, 0.14, position + Vector3.new(0, 3.3, 0), C.MetalDark, true)
+	K.Block(model, Vector3.new(0.9, 0.3, 0.3), at(2.85) * CFrame.new(0, 0, -0.62) * CFrame.Angles(math.rad(-38), 0, 0), C.Ink, true)
 	model.Parent = parent
 	return model
 end

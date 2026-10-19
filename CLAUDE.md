@@ -27,6 +27,8 @@ Server services (`src/server/Services`):
 - `EconomyService`: per-player match cash (`Reset`, `AddCash`, `TrySpend`). Replicated as player attribute `Cash`.
 - `EnemyService`: spawning, ONE central AI loop for all enemies (behaviors Melee / Ranged slipper throw /
   Boss stomp), damage, `DamageInRadius`, boss tracking (`MarkBoss`, workspace `Boss*` attrs), kills, `ClearAll`.
+  Obstacle rules: an obstacle the target stands inside is ignored (no hiding in the fountain / under the
+  pergola), obstacles smaller than the enemy are trampled (the MEGA GRANDMA does not get stuck between bushes).
 - `CombatService`: weapon ownership, equipped weapon, ammo, reload, fire-rate, server raycasts, damage.
 - `ShopService`: `Purchase` remote: weapons (WeaponDefinitions.Cost) and grenades; buys auto-equip.
 - `GrenadeService`: grenade count (`Grenades` attr), `ThrowGrenade` remote, server-side landing + explosion.
@@ -46,14 +48,17 @@ Server services (`src/server/Services`):
 
 World (`src/server/World`): `MapBuilder` (layout of the whole map at server start, spawn points, obstacles,
 lighting; square park inside the ring road "Bingo Blvd", four spur streets across the arena lawn to the
-perimeter street "Slipper Ave" just outside the arena fence, which the houses and the retirement home face),
+perimeter street "Slipper Ave" just outside the arena fence, which the houses and the community buildings face;
+the north side is the town's main street: Town Hall, Coffee Shop, Retirement Home, Grocery, Weapon Shop, and the Gas
+Station on the north-east corner lot; obstacle circles never chained, see Known limitations), `Buildings`
+(community buildings: RetirementHome, WeaponShop, Grocery, CoffeeShop, TownHall, GasStation, each with its lot
+dressing; the Weapon Shop is scenery, buying stays in the shop panel),
 `Streets` (asphalt with ink borders, lane lines, cracks, patches, manholes, storm drains; raised sidewalks with
 curbs, slab joints, ramps, driveway aprons; chamfered corners; crosswalks; stepping stones), `Fences` (Picket,
 Board backyard, Iron, Park, Border, ROAD CLOSED Barricade), `ParkProps` (tiered Fountain with spray particles,
 Slide, CurvySlide, SwingSet, ClimbingFrame, Sandbox, Seesaw, SpringRider, PicnicTable, Pergola, Grill, BirdBath,
 Sundial, SoccerGoal, PicnicBlanket, RoseArch), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards
-with yard props from their `Garden` lists: `{ "Prop", name, x, z, turn?, y? }`, `{ "Curb", name, x, turn? }`; plus the
-retirement home landmark),
+with yard props from their `Garden` lists: `{ "Prop", name, x, z, turn?, y? }`, `{ "Curb", name, x, turn? }`),
 `Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
 chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
@@ -215,17 +220,34 @@ Report honestly what was tested and what was not.
   jersey barriers behind the ROAD CLOSED barricades, BINGO sign, bike rack and carts at the retirement home,
   4 retirement-home billboards in the map corners (ring trees no longer land on the perimeter street corners).
   Mock run ~25k parts (~23k with SmallDetails off), 170 obstacles; preview renders of every prop.
+- [~] Community buildings + quality pass (written 2026-10-19, NOT yet seen in Studio): Buildings module
+  (Retirement Home rebuilt: brick ground floor, wings with front gables, dormers, clock tower with steeple,
+  veranda with a gabled entrance, grounds; Weapon Shop with a barrel roof, stepped false front and a giant
+  revolver; Grocery; Coffee Shop with a rooftop cup; Town Hall with a clock cupola; Gas Station), Architecture
+  FlatRoof / Storefront / Awning, ComicKit.Cone replacing flat-topped spires on pines, shrubs, towers, lamps.
+  Quality pass: obstacle chains replaced by single circles (cars, park fences, hedges, playground, plaza rows,
+  newspaper boxes) after a reachability simulation found grandmas stuck in their notches; enemy obstacle rules
+  (hiding spots, boss trampling); floating/buried part checks (fixed: shuttle mirrors, CARTS sign, retirement
+  home window ink buried under the upper-floor shell, sunken flower centers); fewer repeated lines (siding,
+  brick, shingles), no shingles/gutters on hidden back roof slopes, no ring trees hidden behind houses, shorter
+  hidden backyard fences, fence-post finials; outside-the-arena parts non-colliding. Park re-measured: 126 x 126.
+  Mock run ~26.4k parts, 127 obstacles.
 
 ## Known limitations (now)
 - Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges/Cylinders/Balls, so
-  curves (hoses, rockers, wheels) are short straight segments or round parts. ~25k parts (95% deco)
-  and ~25 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
-  `Config.Comic.SmallDetails = false` drops grass tufts, cracks, patches, manholes, drains and small yard clutter.
+  curves (hoses, rockers, wheels, arches) are short straight segments or round parts, and cones/steeples have a
+  small flat tip (capped with a ball where it shows). ~26.4k parts (98% decoration: no collision, no raycasts;
+  everything outside the arena fence is non-colliding) and ~25 Highlights: check FPS on a phone.
+  Levers: `Config.Comic.Outlines = false` (all outlines off), `Config.Comic.SkipOutlinesOnTouch` (e.g. the four
+  house groups, ~60% of the parts, off on touch devices), `Config.Comic.SmallDetails = false` (~2k parts fewer).
   Sign lettering is SurfaceGui text (GothamBlack).
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:
-  keep arena props small and round-ish; long walls or narrow corridors would trap them.
+  keep arena props small and round-ish; long walls or narrow corridors would trap them. Give each prop ONE
+  circle (two overlapping circles leave a notch that traps grandmas walking straight at it) and keep at least
+  ~3.6 studs between circles. Checked by an offline simulation of the AI from all 8 spawns to a 4-stud grid of
+  player positions (normal, scooter and boss sizes): every position reached.
 - Mobile controls are untested on a real phone (use Studio's device emulator first).
 - Sounds: `Config.Sounds` ids are empty on purpose: Alex will make his own sounds later (the generated set was
   rejected). Every hook is in place; filling an id there is all it takes.

@@ -272,10 +272,17 @@ function EnemyService.ClearAll()
 end
 
 -- Keeps `position` out of every obstacle circle. When the target is behind an obstacle, adds a sideways
--- step so the enemy slides around it instead of pressing into its front.
-local function avoidObstacles(enemy: Enemy, position: Vector3, toTarget: Vector3, stepDistance: number): Vector3
+-- step so the enemy slides around it instead of pressing into its front. An obstacle whose circle the
+-- target itself stands in (in the fountain basin, under the pergola, on the climbing frame) is ignored:
+-- otherwise a player could hide there out of melee reach. Obstacles smaller than the enemy (bushes, lamps,
+-- benches for the MEGA GRANDMA) are trampled: a big body cannot fit between them and would get stuck.
+local function avoidObstacles(enemy: Enemy, position: Vector3, toTarget: Vector3, stepDistance: number, targetPos: Vector3): Vector3
 	local bodyRadius = enemy.Def.Radius + Config.Enemies.ObstacleMargin
 	for _, obstacle in MapBuilder.GetObstacles() do
+		local fromTarget = targetPos - obstacle.Position
+		if obstacle.Radius < enemy.Def.Radius or Vector3.new(fromTarget.X, 0, fromTarget.Z).Magnitude < obstacle.Radius + bodyRadius then
+			continue
+		end
 		local away = position - obstacle.Position
 		local minDistance = obstacle.Radius + bodyRadius
 		local distance = away.Magnitude
@@ -426,7 +433,7 @@ local function step(dt: number)
 			move += push * math.min(1, 6 * stepDt)
 		end
 
-		local newPos = avoidObstacles(enemy, pos + move, toTarget, stepLength)
+		local newPos = avoidObstacles(enemy, pos + move, toTarget, stepLength, pos + toTarget)
 		newPos = Vector3.new(math.clamp(newPos.X, -wall, wall), 0, math.clamp(newPos.Z, -wall, wall))
 		local moved = (newPos - pos).Magnitude > 0.001
 		enemy.Position = newPos

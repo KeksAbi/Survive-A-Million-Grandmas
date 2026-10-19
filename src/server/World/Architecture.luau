@@ -1,7 +1,8 @@
 --!nonstrict
--- Reusable comic-style building components (houses, garages, the retirement home): walls with siding, shingle
--- or brick finish, gable roofs, recessed windows, paneled doors, porches with columns and railings, garages with
--- sectional doors, dormers, bay windows, chimneys, gutters and downspouts.
+-- Reusable comic-style building components (houses, garages, the community buildings): walls with siding,
+-- shingle or brick finish, gable roofs, recessed windows, paneled doors, porches with columns and railings,
+-- garages with sectional doors, dormers, bay windows, chimneys, gutters and downspouts, and for shops flat
+-- roofs with parapets and cornices, storefront windows and striped awnings.
 --
 -- Every builder takes Layers = { Walls, Roofs, Details } (all three may be the same Model). The map puts each
 -- layer in its own outline group, so the client draws a thick ink line wherever a roof meets a wall or a
@@ -74,17 +75,17 @@ function Architecture.Walls(L: Layers, box: CFrame, W: number, H: number, D: num
 		local face, width = f[1], f[2]
 		if finish == "Brick" then
 			local mortar = color:Lerp(WHITE, 0.45)
-			for y = 2.0, H - 0.6, 1.3 do
+			for y = 2.2, H - 0.6, 1.8 do
 				K.Block(P, Vector3.new(width - 0.8, 0.1, 0.06), face * CFrame.new(0, y, -0.03), mortar, true)
 			end
-			for _ = 1, math.floor(width / 1.6) do
-				local row = rng:NextInteger(0, math.max(0, math.floor((H - 3) / 1.3) - 1))
+			for _ = 1, math.floor(width / 3.2) do
+				local row = rng:NextInteger(0, math.max(0, math.floor((H - 3) / 1.8) - 1))
 				local x = rng:NextNumber(-width / 2 + 1.5, width / 2 - 1.5)
-				K.Block(P, Vector3.new(1.5, 0.6, 0.09), face * CFrame.new(x, 2.65 + row * 1.3, -0.045), K.Dark(color), true)
+				K.Block(P, Vector3.new(1.5, 0.6, 0.09), face * CFrame.new(x, 3.1 + row * 1.8, -0.045), K.Dark(color), true)
 			end
 		else
 			local line = color:Lerp(C.Ink, 0.22)
-			local spacing = if finish == "Shingle" then 1.25 else 1.6
+			local spacing = if finish == "Shingle" then 1.7 else 2.2
 			for y = 1.2 + spacing, H - 0.4, spacing do
 				K.Block(P, Vector3.new(width - 0.8, 0.12, 0.08), face * CFrame.new(0, y, -0.04), line, true)
 			end
@@ -100,7 +101,8 @@ export type RoofInfo = { WallH: number, Rise: number, Half: number, Angle: numbe
 -- Solid attic (two wedges in gableColor), two thick tilted slabs with overhang, shingle courses, white rake
 -- boards and fascia with an ink line, ridge cap, gutters. Options (o):
 --   Over (overhang, 1.4), Extend (extra slab on the front -Z side: a roof running down over a porch),
---   Vents (diamond vents on the gable ends, default on), Gutters (default on), Downspouts.
+--   Vents (diamond vents on the gable ends, default on), Gutters (default on), Downspouts, Back (false: the
+--   back slope is never seen, e.g. a house facing the arena; it gets no shingle courses, gutter or downspouts).
 -- Returns RoofInfo for dormers.
 function Architecture.GableRoof(L: Layers, box: CFrame, W: number, D: number, wallH: number, rise: number, roofColor: Color3, gableColor: Color3, o: { [string]: any }?): RoofInfo
 	local opt = o or {}
@@ -122,8 +124,9 @@ function Architecture.GableRoof(L: Layers, box: CFrame, W: number, D: number, wa
 		local slab = CFrame.fromMatrix(center, Vector3.xAxis, normal)
 		local eaveZ = side * length / 2 -- the slab's local Z at its lower edge
 		K.Block(L.Roofs, Vector3.new(width, thick, length), box * slab, roofColor)
-		for i = 1, math.floor((length - 0.4) / 1.5) do
-			K.Block(L.Roofs, Vector3.new(width - 0.5, 0.12, 0.35), box * slab * CFrame.new(0, thick / 2 + 0.04, eaveZ - side * i * 1.5), K.Dark(roofColor), true)
+		local seen = side == -1 or opt.Back ~= false
+		for i = 1, if seen then math.floor((length - 0.4) / 2.0) else 0 do
+			K.Block(L.Roofs, Vector3.new(width - 0.5, 0.12, 0.35), box * slab * CFrame.new(0, thick / 2 + 0.04, eaveZ - side * i * 2.0), K.Dark(roofColor), true)
 		end
 		K.Block(L.Roofs, Vector3.new(width + 0.1, thick + 0.3, 0.35), box * slab * CFrame.new(0, -0.1, eaveZ - side * 0.1), C.Trim, true)
 		K.Ink(L.Roofs, Vector3.new(width + 0.15, 0.14, 0.4), box * slab * CFrame.new(0, -0.1 - (thick + 0.3) / 2, eaveZ - side * 0.1))
@@ -131,7 +134,7 @@ function Architecture.GableRoof(L: Layers, box: CFrame, W: number, D: number, wa
 			K.Block(L.Roofs, Vector3.new(0.3, thick + 0.3, length), box * slab * CFrame.new(e * (width / 2 - 0.1), -0.1, 0), C.Trim, true)
 		end
 
-		if opt.Gutters ~= false then
+		if opt.Gutters ~= false and seen then
 			local gutter = slab * CFrame.new(0, -thick / 2 - 0.3, eaveZ - side * 0.3)
 			K.Block(L.Details, Vector3.new(width - 0.2, 0.45, 0.55), box * gutter, C.Metal, true)
 			if opt.Downspouts then
@@ -222,7 +225,6 @@ function Architecture.Window(L: Layers, wall: CFrame, w: number, h: number, o: {
 	end
 	K.Block(P, Vector3.new(w, 0.16, 0.12), wall * CFrame.new(0, 0, -0.28), trim, true)
 	K.Block(P, Vector3.new(w + 1.4, 0.35, 1.0), wall * CFrame.new(0, -(h / 2 + 0.625), -0.5), trim, true)
-	K.Ink(P, Vector3.new(w + 1.45, 0.1, 1.05), wall * CFrame.new(0, -(h / 2 + 0.85), -0.5))
 	if opt.Crown then
 		K.Block(P, Vector3.new(w + 1.6, 0.4, 0.8), wall * CFrame.new(0, h / 2 + 0.65, -0.4), trim, true)
 		K.Ink(P, Vector3.new(w + 1.65, 0.1, 0.85), wall * CFrame.new(0, h / 2 + 0.9, -0.4))
@@ -233,9 +235,7 @@ function Architecture.Window(L: Layers, wall: CFrame, w: number, h: number, o: {
 			local x = s * (w / 2 + 0.8 + sw / 2)
 			K.Ink(P, Vector3.new(sw + 0.3, h + 0.6, 0.1), wall * CFrame.new(x, 0, -0.05))
 			K.Block(P, Vector3.new(sw, h + 0.3, 0.2), wall * CFrame.new(x, 0, -0.2), opt.Shutters, true)
-			for _, y in { -h / 4, h / 4 } do
-				K.Block(P, Vector3.new(sw - 0.3, 0.12, 0.06), wall * CFrame.new(x, y, -0.33), K.Dark(opt.Shutters), true)
-			end
+			K.Block(P, Vector3.new(sw - 0.3, 0.12, 0.06), wall * CFrame.new(x, 0, -0.33), K.Dark(opt.Shutters), true)
 		end
 	end
 	if opt.Box then
@@ -512,6 +512,108 @@ function Architecture.Dormer(L: Layers, box: CFrame, roof: RoofInfo, x: number, 
 	end
 	Architecture.GableRoof(L, center * CFrame.Angles(0, math.pi / 2, 0), depth, bw, yt, dRise, roofColor, wallColor, { Over = 0.6, Vents = false, Gutters = false })
 	Architecture.Window(L, box * CFrame.new(x, yf + 2.0 + h / 2, zf), w, h, { Trim = trim })
+end
+
+------------------------------------------------------------------------------------- commercial building parts
+
+-- Flat roof on a box of walls ending at H: dark roof deck, a parapet in the wall color all round, a trim
+-- coping on it (roof layer: an ink line where it meets the wall), a cornice band under the parapet on the front
+-- and both sides, optional dentils (the row of little teeth under the cornice) and rooftop AC units. Options:
+--   Parapet (height, 2.2), Coping (color), Cornice (color, or false for none), Dentils, Units (AC box count).
+-- Returns the height of the parapet top.
+function Architecture.FlatRoof(L: Layers, box: CFrame, W: number, D: number, H: number, wallColor: Color3, o: { [string]: any }?): number
+	local opt = o or {}
+	local p = opt.Parapet or 2.2
+	local coping = opt.Coping or C.Trim
+	K.Block(L.Roofs, Vector3.new(W - 0.6, 0.4, D - 0.6), box * CFrame.new(0, H + 0.4, 0), C.MetalDark, true)
+	for _, s in { -1, 1 } do
+		K.Block(L.Walls, Vector3.new(W, p, 0.8), box * CFrame.new(0, H + p / 2, s * (D / 2 - 0.4)), wallColor)
+		K.Block(L.Walls, Vector3.new(0.8, p, D), box * CFrame.new(s * (W / 2 - 0.4), H + p / 2, 0), wallColor, true)
+		K.Block(L.Roofs, Vector3.new(W + 0.8, 0.45, 1.4), box * CFrame.new(0, H + p + 0.22, s * (D / 2 - 0.3)), coping, true)
+		K.Block(L.Roofs, Vector3.new(1.4, 0.45, D + 0.8), box * CFrame.new(s * (W / 2 - 0.3), H + p + 0.22, 0), coping, true)
+	end
+	if opt.Cornice ~= false then
+		local band = opt.Cornice or C.Trim
+		K.Block(L.Details, Vector3.new(W + 1.4, 0.8, 1.2), box * CFrame.new(0, H - 0.2, -D / 2), band, true)
+		for _, s in { -1, 1 } do
+			K.Block(L.Details, Vector3.new(1.2, 0.8, D + 1.4), box * CFrame.new(s * W / 2, H - 0.2, 0), band, true)
+		end
+		K.Ink(L.Details, Vector3.new(W + 1.45, 0.12, 1.25), box * CFrame.new(0, H - 0.62, -D / 2))
+		if opt.Dentils then
+			for x = -W / 2 + 0.9, W / 2 - 0.8, 1.2 do
+				K.Block(L.Details, Vector3.new(0.5, 0.45, 0.5), box * CFrame.new(x, H - 0.85, -D / 2 - 0.2), band, true)
+			end
+		end
+	end
+	for i = 1, opt.Units or 0 do
+		local unit = box * CFrame.new((i - (opt.Units + 1) / 2) * W / (opt.Units + 1), H + 0.6, D * 0.15)
+		K.Block(L.Roofs, Vector3.new(3.0, 2.6, 2.2), unit * CFrame.new(0, 1.3, 0), C.Metal, true)
+		K.Disc(L.Roofs, 1.7, 0.12, (unit * CFrame.new(0, 2.6, 0)).Position, C.Ink, true)
+		for k = 0, 1 do
+			K.Block(L.Roofs, Vector3.new(1.5, 0.16, 0.25), unit * CFrame.new(0, 2.75, 0) * CFrame.Angles(0, k * math.pi / 2 + 0.4, 0), C.MetalDark, true)
+		end
+		K.Block(L.Roofs, Vector3.new(2.6, 0.1, 0.08), unit * CFrame.new(0, 1.0, -1.12), K.Dark(C.Metal), true)
+		K.Block(L.Roofs, Vector3.new(2.6, 0.1, 0.08), unit * CFrame.new(0, 1.5, -1.12), K.Dark(C.Metal), true)
+	end
+	return H + p + 0.45
+end
+
+-- Shop window or glass door (`wall` = wall CFrame at the bottom center of the opening, w x h): inked opening,
+-- frame jambs and head, a kick panel with a raised inner panel under the glass, glass set back in the frame
+-- with a hard shadow and a glint, `Panes` panes split by mullions, a transom bar and a sill. Options: Frame
+-- (color), Kick (color), KickHeight (1.4), Panes (3), Transom (true). Returns a CFrame on the glass at the sill
+-- (LookVector out of the wall), for display items standing in the window between glass and frame.
+function Architecture.Storefront(L: Layers, wall: CFrame, w: number, h: number, o: { [string]: any }?): CFrame
+	local opt = o or {}
+	local P = L.Details
+	local frameColor = opt.Frame or C.Trim
+	local kick = opt.KickHeight or 1.4
+	local panes = opt.Panes or 3
+	K.Ink(P, Vector3.new(w + 1.2, h + 0.6, 0.1), wall * CFrame.new(0, h / 2, -0.05))
+	for _, s in { -1, 1 } do
+		K.Block(P, Vector3.new(0.5, h, 0.6), wall * CFrame.new(s * (w / 2 - 0.05), h / 2, -0.3), frameColor, true)
+	end
+	K.Block(P, Vector3.new(w + 0.4, 0.55, 0.65), wall * CFrame.new(0, h - 0.27, -0.32), frameColor, true)
+	K.Block(P, Vector3.new(w - 0.5, kick, 0.3), wall * CFrame.new(0, kick / 2, -0.2), opt.Kick or K.Dark(frameColor), true)
+	if kick > 0.8 then
+		K.Block(P, Vector3.new(w - 1.4, kick - 0.55, 0.08), wall * CFrame.new(0, kick / 2, -0.38), K.Light(opt.Kick or K.Dark(frameColor)), true)
+	end
+	local glassH = h - kick - 0.55
+	local glassY = kick + glassH / 2
+	K.Block(P, Vector3.new(w - 0.5, glassH, 0.1), wall * CFrame.new(0, glassY, -0.12), C.Glass, true)
+	K.Block(P, Vector3.new(w - 0.5, 0.35, 0.04), wall * CFrame.new(0, h - 0.72, -0.19), K.Dark(C.Glass), true)
+	K.Block(P, Vector3.new(0.3, glassH * 0.5, 0.04), wall * CFrame.new(-w * 0.22, glassY + glassH * 0.1, -0.2) * CFrame.Angles(0, 0, math.rad(-30)), C.GlassShine, true)
+	for i = 1, panes - 1 do
+		K.Block(P, Vector3.new(0.3, glassH, 0.3), wall * CFrame.new(-w / 2 + 0.25 + i * (w - 0.5) / panes, glassY, -0.3), frameColor, true)
+	end
+	if opt.Transom ~= false and glassH > 4 then
+		K.Block(P, Vector3.new(w - 0.5, 0.35, 0.3), wall * CFrame.new(0, h - 1.75, -0.3), frameColor, true)
+	end
+	K.Block(P, Vector3.new(w + 0.2, 0.22, 0.8), wall * CFrame.new(0, kick, -0.45), frameColor, true)
+	K.Ink(P, Vector3.new(w + 0.25, 0.08, 0.85), wall * CFrame.new(0, kick - 0.13, -0.45))
+	return wall * CFrame.new(0, kick + 0.11, -0.17)
+end
+
+-- Striped shed awning on a wall (`wall` = wall CFrame at the middle of its top edge), w wide and reaching
+-- `depth` out: slats in two colors sloping down and out, side cheeks, a valance with scallops, an ink line on
+-- the front edge and two iron brackets.
+function Architecture.Awning(L: Layers, wall: CFrame, w: number, depth: number, colorA: Color3, colorB: Color3)
+	local P = L.Details
+	local drop = depth * 0.55
+	local n = math.max(2, math.round(w / 1.4))
+	local sw = w / n
+	for i = 0, n - 1 do
+		local x = -w / 2 + sw * (i + 0.5)
+		local a, b = (wall * CFrame.new(x, 0, 0)).Position, (wall * CFrame.new(x, -drop, -depth)).Position
+		K.Block(P, Vector3.new(sw, 0.18, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b), if i % 2 == 0 then colorA else colorB, true)
+		K.Cylinder(P, Vector3.new(0.08, sw * 0.9, sw * 0.9), wall * CFrame.new(x, -drop - 0.5, -depth + 0.06) * CFrame.Angles(0, math.pi / 2, 0), if i % 2 == 0 then colorB else colorA, true)
+	end
+	for _, s in { -1, 1 } do
+		K.Wedge(P, Vector3.new(0.15, drop, depth), wall * CFrame.new(s * w / 2, -drop / 2, -depth / 2), colorA, true)
+		K.Rod(P, (wall * CFrame.new(s * (w / 2 - 0.6), -drop - 0.9, 0)).Position, (wall * CFrame.new(s * (w / 2 - 0.6), -drop * 0.6, -depth * 0.75)).Position, 0.12, C.Ink, true)
+	end
+	K.Block(P, Vector3.new(w + 0.1, 0.5, 0.12), wall * CFrame.new(0, -drop - 0.22, -depth), colorA, true)
+	K.Ink(P, Vector3.new(w + 0.15, 0.1, 0.18), wall * CFrame.new(0, -drop + 0.04, -depth))
 end
 
 return Architecture

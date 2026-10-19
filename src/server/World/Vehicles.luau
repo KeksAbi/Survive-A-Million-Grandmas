@@ -384,8 +384,8 @@ local function shuttle(L: Layers, cf: CFrame)
 		K.Panel(D, 1.4, 1.4, side * CFrame.new(s * 8, clear + 3.95, 0) * CFrame.Angles(0, 0, math.pi / 4), BRASS, 0.12, 0.08)
 		K.Block(D, Vector3.new(0.6, 0.6, 0.06), side * CFrame.new(s * 8, clear + 3.95, -0.22) * CFrame.Angles(0, 0, math.pi / 4), teal, true)
 		-- mirrors on arms ahead of the windshield
-		K.Block(D, Vector3.new(0.15, 0.15, 1.6), at(s * (W / 2 + 0.4), top - 1.5, nose + 0.3) * CFrame.Angles(0, s * math.rad(-25), 0), C.MetalDark, true)
-		K.Block(D, Vector3.new(0.3, 1.2, 0.6), at(s * (W / 2 + 0.75), top - 2.1, nose - 0.4), C.Ink, true)
+		K.Block(D, Vector3.new(0.15, 0.15, 1.8), at(s * (W / 2 + 0.2), top - 1.5, nose + 0.6) * CFrame.Angles(0, s * math.rad(-25), 0), C.MetalDark, true)
+		K.Block(D, Vector3.new(0.3, 1.2, 0.6), at(s * (W / 2 + 0.6), top - 2.1, nose - 0.2), C.Ink, true)
 		-- wheels
 		for _, wz in { -5.0, 7.2 } do
 			wheel(D, cf, s, s * (W / 2 - 0.35), wz, 1.7, 1.0, W / 2)

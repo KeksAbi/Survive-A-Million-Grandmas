@@ -16,12 +16,12 @@ local IRON = Color3.fromRGB(40, 40, 48)
 local BOARD = Color3.fromRGB(150, 95, 55)
 local ORANGE = Color3.fromRGB(255, 120, 30)
 
--- Square post with a cap and a little spire on top.
+-- Square post with a cap and a diamond finial on top.
 function Fences.Post(parent: Instance, position: Vector3, height: number, color: Color3)
 	local base = CFrame.new(position)
 	K.Block(parent, Vector3.new(0.9, height, 0.9), base * CFrame.new(0, height / 2, 0), color, true)
 	K.Block(parent, Vector3.new(1.25, 0.3, 1.25), base * CFrame.new(0, height + 0.15, 0), color, true)
-	K.Spire(parent, 0.8, 0.6, base * CFrame.new(0, height + 0.3, 0), color, true)
+	K.Block(parent, Vector3.one * 0.55, base * CFrame.new(0, height + 0.6, 0) * CFrame.Angles(math.pi / 4, 0, math.pi / 4), color, true)
 end
 
 -- White picket fence: two rails and pointed pickets every `spacing` studs.

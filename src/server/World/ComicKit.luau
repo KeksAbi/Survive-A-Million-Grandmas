@@ -205,14 +205,16 @@ end
 
 -- Faceted cone (traffic cones, pointy hats): `sides` wedges fanned around the axis, each tall at the axis and
 -- sloping out to the rim, so the silhouette is a pointed triangle from every side (a Spire looks flat-topped
--- from straight in front). `cframe` = center of the base.
-function ComicKit.Cone(parent: Instance, diameter: number, height: number, cframe: CFrame, color: Color3, deco: boolean?, sides: number?)
+-- from straight in front). `cframe` = center of the base. With `alt`, the facets alternate between the two
+-- colors (umbrellas, parasols). The tip is a small flat facet: cap it with a ball or finial on show pieces.
+function ComicKit.Cone(parent: Instance, diameter: number, height: number, cframe: CFrame, color: Color3, deco: boolean?, sides: number?, alt: Color3?)
 	local n = sides or 8
 	local r = diameter / 2
 	local width = 2 * r * math.tan(math.pi / n)
 	for i = 0, n - 1 do
 		local turn = cframe * CFrame.Angles(0, i * 2 * math.pi / n, 0)
-		ComicKit.Wedge(parent, Vector3.new(width, height, r), turn * CFrame.new(0, height / 2, -r / 2), color, if i == 0 then deco else true)
+		local facet = if alt and i % 2 == 1 then alt else color
+		ComicKit.Wedge(parent, Vector3.new(width, height, r), turn * CFrame.new(0, height / 2, -r / 2), facet, if i == 0 then deco else true)
 	end
 end
 

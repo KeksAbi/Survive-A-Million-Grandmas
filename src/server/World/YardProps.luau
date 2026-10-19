@@ -2,7 +2,8 @@
 -- Residential props for front yards, porches and driveways, built from ComicKit parts: wooden mailbox, hose
 -- reel, lawn mower, wheelbarrow, garden tools (shovel, rake, pitchfork, tool rack), flowerpots, watering can,
 -- gnome, flamingo, outdoor (Adirondack) chair, wooden patio table, kettle grill, trash and recycling bins,
--- welcome sign, hanging flower basket, doghouse, birdhouse, wooden crate, bunting and a weather vane.
+-- welcome sign, hanging flower basket, doghouse, birdhouse, wooden crate, cafe bistro set, bunting and a
+-- weather vane.
 -- Every builder takes a parent and a ground CFrame (LookVector = the prop's front) and returns a Model.
 -- Small props are pure decoration (no collision, no raycasts, no shadow); bigger ones keep one solid core
 -- (bins, doghouse, crate, grill) to bump into. Houses and MapBuilder place them; anything inside the arena
@@ -44,7 +45,7 @@ end
 -- up (lying) direction.
 local function blossom(parent: Instance, cframe: CFrame, size: number, color: Color3)
 	K.Block(parent, Vector3.new(size, size * 0.3, size), cframe * CFrame.Angles(0, math.pi / 4, 0), color, true)
-	K.Block(parent, Vector3.new(size * 0.4, size * 0.36, size * 0.4), cframe, YELLOW, true)
+	K.Block(parent, Vector3.new(size * 0.4, size * 0.6, size * 0.4), cframe, YELLOW, true)
 end
 
 -------------------------------------------------------------------------------------------- mailbox
@@ -399,9 +400,46 @@ function YardProps.PatioTable(parent: Instance, cframe: CFrame, umbrella: boolea
 	K.Block(model, Vector3.new(2.7, 0.15, 0.15), at(0, 0.45, 0), K.Dark(C.Wood), true)
 	if umbrella then
 		K.Tube(model, pt(0, 0.1, 0), pt(0, 5.6, 0), 0.16, C.Trim, true)
-		K.Spire(model, 4.6, 1.2, at(0, 4.4, 0), RED, true)
-		K.Spire(model, 4.6, 1.2, at(0, 4.42, 0) * CFrame.Angles(0, math.pi / 4, 0), C.Trim, true)
+		K.Cone(model, 4.6, 1.2, at(0, 4.4, 0), RED, true, 8, C.Trim)
 		K.Ball(model, 0.35, pt(0, 5.65, 0), RED, true)
+	end
+	model.Parent = parent
+	return model
+end
+
+-- Cafe terrace bistro set: round marble-white top with an ink rim on a pedestal with a cross foot, two bistro
+-- chairs (round seat, three legs, hoop back with a middle rail) facing each other along X, and optionally a
+-- striped parasol through the middle.
+function YardProps.CafeTable(parent: Instance, cframe: CFrame, color: Color3?, parasol: boolean?): Model
+	local model = K.Model("CafeTable")
+	local at, pt = frame(cframe)
+	local metal = color or rgb(40, 96, 72)
+	K.Disc(model, 2.4, 0.1, pt(0, 2.4, 0), C.Ink, true)
+	K.Disc(model, 2.3, 0.14, pt(0, 2.46, 0), C.Trim, true)
+	K.Tube(model, pt(0, 0.1, 0), pt(0, 2.42, 0), 0.22, metal, true)
+	for k = 0, 1 do
+		K.Block(model, Vector3.new(1.6, 0.14, 0.22), at(0, 0.07, 0) * CFrame.Angles(0, k * math.pi / 2 + math.pi / 4, 0), metal, true)
+	end
+	for _, s in { -1, 1 } do
+		local seat = at(s * 1.75, 0, 0) * CFrame.Angles(0, s * math.pi / 2, 0)
+		local function sp(x: number, y: number, z: number): Vector3
+			return (seat * CFrame.new(x, y, z)).Position
+		end
+		K.Disc(model, 1.15, 0.16, sp(0, 1.5, 0), metal, true)
+		for k = 0, 2 do
+			local a = k * math.pi * 2 / 3 + math.pi / 6
+			K.Rod(model, sp(math.cos(a) * 0.38, 1.5, math.sin(a) * 0.38), sp(math.cos(a) * 0.52, 0, math.sin(a) * 0.52), 0.09, metal, true)
+		end
+		for _, x in { -0.4, 0.4 } do
+			K.Rod(model, sp(x, 1.6, 0.42), sp(x * 1.1, 3.0, 0.6), 0.09, metal, true)
+		end
+		K.Tube(model, sp(-0.48, 3.0, 0.6), sp(0.48, 3.0, 0.6), 0.14, metal, true)
+		K.Tube(model, sp(-0.44, 2.3, 0.51), sp(0.44, 2.3, 0.51), 0.09, metal, true)
+	end
+	if parasol then
+		K.Tube(model, pt(0, 2.5, 0), pt(0, 6.0, 0), 0.14, C.Trim, true)
+		K.Cone(model, 4.4, 1.3, at(0, 4.9, 0), rgb(236, 84, 84), true, 8)
+		K.Ball(model, 0.4, pt(0, 6.2, 0), C.Trim, true)
 	end
 	model.Parent = parent
 	return model

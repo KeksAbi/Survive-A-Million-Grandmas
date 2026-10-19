@@ -2,11 +2,12 @@
 -- Builds "Grandma's Retirement Neighborhood" in the comic-book style at server start, no external assets.
 -- Layout: a perfectly square park with a fountain inside a square ring road ("Bingo Blvd"); from the middle of
 -- each side a street runs out across the arena's lawn to a square perimeter street ("Slipper Ave") just outside
--- the arena fence, which the houses, the retirement home and their driveways face. A picket fence (closed by
--- ROAD CLOSED barricades where the streets cross it) and invisible walls close the arena at
--- Config.Map.WallDistance. Enemies spawn at 8 marked points just inside the fence. Everything inside the arena
--- is low, small and round-ish, because enemy AI walks in straight lines (obstacles are circles, see
--- GetObstacles).
+-- the arena fence, which the houses, the community buildings (north side: town hall, coffee shop, retirement
+-- home, grocery, weapon shop, gas station) and their driveways face. A picket fence (closed by ROAD CLOSED
+-- barricades where the streets cross it) and invisible walls close the arena at Config.Map.WallDistance.
+-- Enemies spawn at 8 marked points just inside the fence. Everything inside the arena is low, small and
+-- round-ish, because enemy AI walks in straight lines (obstacles are circles, see GetObstacles): one circle per
+-- prop, never a chain of overlapping circles (the notch between two traps grandmas), gaps wider than a grandma.
 -- Props go into outline-group Models (ComicKit.OutlineGroup): each group gets one ink outline on the client.
 
 local Lighting = game:GetService("Lighting")
@@ -16,6 +17,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local ComicKit = require(script.Parent.ComicKit)
 local Fences = require(script.Parent.Fences)
 local GrandmaProps = require(script.Parent.GrandmaProps)
+local Buildings = require(script.Parent.Buildings)
 local Houses = require(script.Parent.Houses)
 local ParkProps = require(script.Parent.ParkProps)
 local PropLibrary = require(script.Parent.PropLibrary)
@@ -53,6 +55,7 @@ local OUTER = Config.Map.WallDistance + 11 -- perimeter street center line (outs
 local OUTER_WIDTH = 14
 local HOUSE_ROW = Config.Map.WallDistance + 42 -- house centers
 local BILLBOARD = OUTER + 19 -- the corner billboards stand at (+-BILLBOARD, +-BILLBOARD)
+local GAS_STATION = OUTER + 34 -- the gas station lot center is (GAS_STATION, -GAS_STATION)
 local NAMES = { Ring = "BINGO BLVD", Outer = "SLIPPER AVE", Spurs = { "DENTURE DR", "GRANNY LN", "KNITTING WAY", "PRUNE ST" } }
 local SIDES = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }
 local CORNERS = { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }
@@ -90,13 +93,12 @@ end
 -- Vehicle outline layers (set in Build).
 local vehicles: Vehicles.Layers
 
--- Parked car: two circles along its length keep grandmas off it.
+-- Parked car: one circle over most of its length keeps grandmas off it. (Two circles side by side leave a
+-- notch between them where a grandma walking straight at the car's flank gets stuck.)
 local function car(kind: string, cframe: CFrame)
 	Vehicles.Build(vehicles, kind, cframe)
 	local spec = Vehicles.Specs[kind]
-	for _, z in { -spec.L / 4, spec.L / 4 } do
-		addObstacle((cframe * CFrame.new(0, 0, z)).Position, spec.W / 2 + 0.3)
-	end
+	addObstacle(cframe.Position, math.max(spec.W / 2 + 0.3, spec.L * 0.45))
 end
 
 -- Outward normal and along-direction of one side of a square street. Side i's +tan end meets the next side.
@@ -231,17 +233,15 @@ local function buildPark(groups: { [string]: Model })
 	for i = 0, 3 do
 		local angle = math.rad(45 + i * 90)
 		local dir = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		-- lamp, bench and bin in one row along the plaza ring: overlapping obstacles, no pocket between them
+		-- lamp, bench and bin in one row along the plaza ring, covered by ONE obstacle circle (a chain of
+		-- circles leaves notches); its center sits a little outward so the ring path round the fountain stays
+		-- wider than a grandma
 		local seat = dir * 17 + Vector3.new(0, 0.2, 0)
 		local facing = CFrame.lookAt(seat, Vector3.new(0, 0.2, 0))
 		StreetProps.Bench(groups.StreetProps, facing)
-		addObstacle(seat, 2.8)
-		local can = (facing * CFrame.new(3.6, 0, 0)).Position
-		StreetProps.TrashCan(groups.StreetProps, can)
-		addObstacle(can, 1)
-		local lamp = (facing * CFrame.new(-3.4, 0, 0)).Position
-		StreetProps.Lamp(groups.StreetProps, lamp)
-		addObstacle(lamp, 0.8)
+		StreetProps.TrashCan(groups.StreetProps, (facing * CFrame.new(3.6, 0, 0)).Position)
+		StreetProps.Lamp(groups.StreetProps, (facing * CFrame.new(-3.4, 0, 0)).Position)
+		addObstacle(dir * 18, 4.3)
 	end
 
 	-- the four wide paths from the plaza to the sidewalks, with stone edging and a rustic fence piece on each
@@ -257,9 +257,7 @@ local function buildPark(groups: { [string]: Model })
 			K.Block(play, Vector3.new(0.4, 0.3, edge - from), path * CFrame.new(s * 5.2, 0.15, 0), C.Stone, true)
 			local a, b = dir * (edge - 1.4) + across * s * 7.5, dir * (edge - 1.4) + across * s * 14.5
 			Fences.Park(groups.Fence, a, b)
-			for k = 0, 2 do
-				addObstacle(a:Lerp(b, (k + 0.5) / 3), 1.1)
-			end
+			addObstacle((a + b) / 2, 3.6) -- one circle: no notch for grandmas to get stuck in
 		end
 	end
 
@@ -270,30 +268,21 @@ local function buildPark(groups: { [string]: Model })
 	local function item(offset: Vector3, radius: number)
 		addObstacle(pg + offset, radius)
 	end
-	-- each piece's obstacles overlap in a chain, so there is no pocket to get stuck in
+	-- one round obstacle per piece (never a chain of circles: the notch between two circles traps grandmas),
+	-- at least a grandma's width apart; the sandbox and the spring riders are walk-through
 	ParkProps.Slide(park, CFrame.new(pg + Vector3.new(-10, 0.08, 12)))
-	for _, circle in { { 0, 2.6 }, { -4.2, 1.5 }, { -7.6, 1.5 } } do
-		item(Vector3.new(-10, 0, 12 + circle[1]), circle[2])
-	end
+	item(Vector3.new(-10, 0, 8.75), 5.4)
 	ParkProps.CurvySlide(park, CFrame.new(pg + Vector3.new(10, 0.08, 12)))
-	item(Vector3.new(10, 0, 12), 2.6)
-	item(Vector3.new(7.5, 0, 8), 1.6)
-	item(Vector3.new(6.2, 0, 6.8), 1.4)
+	item(Vector3.new(8.8, 0, 10), 4.0)
 	ParkProps.SwingSet(park, CFrame.new(pg + Vector3.new(0, 0.08, -12)))
-	for _, x in { -5, 0, 5 } do
-		item(Vector3.new(x, 0, -12), if x == 0 then 2.2 else 2.0)
-	end
+	item(Vector3.new(0, 0, -12), 7.0)
 	ParkProps.ClimbingFrame(park, CFrame.new(pg + Vector3.new(11, 0.08, -1)))
 	item(Vector3.new(11, 0, -1), 4.2)
 	ParkProps.Sandbox(park, CFrame.new(pg + Vector3.new(-11, 0.08, -3)))
 	ParkProps.Seesaw(park, CFrame.new(pg + Vector3.new(0, 0.08, 2)))
-	for _, x in { -2.6, 2.6 } do
-		item(Vector3.new(x, 0, 2), 1.2)
-	end
+	item(Vector3.new(0, 0, 2), 3.6)
 	ParkProps.SpringRider(park, CFrame.lookAt(pg + Vector3.new(-4, 0.08, -5), pg + Vector3.new(-4, 0.08, -10)), "Duck")
 	ParkProps.SpringRider(park, CFrame.lookAt(pg + Vector3.new(4, 0.08, -5), pg + Vector3.new(4, 0.08, -10)), "Horse")
-	item(Vector3.new(-4, 0, -5), 0.9)
-	item(Vector3.new(4, 0, -5), 0.9)
 	for _, spot in { { Vector3.new(0, 0, 20), Vector3.new(0, 0, 10) }, { Vector3.new(21.5, 0, 0), Vector3.new(10, 0, 0) } } do
 		StreetProps.Bench(groups.StreetProps, CFrame.lookAt(pg + spot[1], pg + spot[2]))
 		item(spot[1], 2.8)
@@ -345,16 +334,14 @@ local function buildPark(groups: { [string]: Model })
 	Vegetation.FlowerBed(garden, gd, rng, true)
 	GrandmaProps.GrandmaStatue(park, CFrame.lookAt(gd, Vector3.zero))
 	for _, dir in { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis } do
-		StreetProps.Bench(groups.StreetProps, CFrame.lookAt(gd + dir * 7.5, gd))
+		StreetProps.Bench(groups.StreetProps, CFrame.lookAt(gd + dir * 6.5, gd))
 	end
-	addObstacle(gd, 8.8) -- bed and benches as one round obstacle: no notches between the benches
+	addObstacle(gd, 7.6) -- bed and benches as one round obstacle: no notches between the benches
 	for i = 0, 3 do
 		local diag = Vector3.new(math.cos(i * math.pi / 2 + math.pi / 4), 0, math.sin(i * math.pi / 2 + math.pi / 4))
-		local at = gd + diag * 13
+		local at = gd + diag * 14.5 -- far enough from the bench ring for a scooter grandma to pass between
 		Vegetation.TrimmedHedge(garden, CFrame.lookAt(at, gd), 6, rng, 0.8)
-		local along = Vector3.new(diag.Z, 0, -diag.X)
-		addObstacle(at + along * 1.6, 1.5)
-		addObstacle(at - along * 1.6, 1.5)
+		addObstacle(at, 2.7) -- one circle per hedge: two side by side would leave a notch
 	end
 	for x = -7, -27, -2 do
 		Streets.Stone(play, Vector3.new(x, 0.02, -36), rng, 1.3)
@@ -371,8 +358,8 @@ local function buildPark(groups: { [string]: Model })
 		tree("Cherry", spot)
 		tufts(spot, 2.4, 3)
 	end
-	Vegetation.Bed(garden, Vector3.new(-24, 0, -46), Vector3.new(-24, 0, -58), { "Rose", "Tulip" }, rng)
-	Vegetation.Bed(garden, Vector3.new(-46, 0, -24), Vector3.new(-58, 0, -24), { "Tulip", "Daisy" }, rng)
+	Vegetation.Bed(garden, Vector3.new(-24, 0, -49), Vector3.new(-24, 0, -60), { "Rose", "Tulip" }, rng)
+	Vegetation.Bed(garden, Vector3.new(-49, 0, -24), Vector3.new(-60, 0, -24), { "Tulip", "Daisy" }, rng)
 	tree("Oak", Vector3.new(-56, 0, -56))
 	tufts(Vector3.new(-56, 0, -56), 2.6, 3)
 
@@ -480,9 +467,11 @@ end
 local function buildScenery(groups: { [string]: Model }): { { { number } } }
 	local d = Config.Map.WallDistance
 	local homeAt = Vector3.new(0, 0, -d - 55)
-	-- houses along three sides, square to the perimeter street and facing the arena; the retirement home owns
+	-- houses along three sides, square to the perimeter street and facing the arena; the community buildings own
 	-- the north side
 	local taken = { { Position = homeAt, Radius = 50 } }
+	-- buildings that hide whatever stands right behind them from the arena: { center, outward normal, half width }
+	local blockers = { { homeAt, Vector3.new(0, 0, -1), 40 } }
 	local aprons = { {}, {}, {}, {} }
 	local curbZ = -(HOUSE_ROW - (OUTER + OUTER_WIDTH / 2 + WALK)) -- the sidewalk's yard-side edge, in house space
 	local index = 0
@@ -498,30 +487,30 @@ local function buildScenery(groups: { [string]: Model }): { { { number } } }
 				table.insert(aprons[sideIndex], { (house * Vector3.new(info.Garage.X, 0, 0)):Dot(tan), info.Garage.Width })
 			end
 			table.insert(taken, { Position = position, Radius = 30 })
+			table.insert(blockers, { position, n, 13 })
 		end
 	end
-	local home = CFrame.lookAt(homeAt, Vector3.zero)
-	Houses.RetirementHome(groups.Landmarks, home)
-	-- retirement home garden: trimmed hedges and rose beds beside the porch, pointed shrubs at the steps
-	for _, x in { -33, -23, 23, 33 } do
-		Vegetation.TrimmedHedge(garden, home * CFrame.new(x, 0, -17.2), 8, rng)
+	-- the north side is the town's main street: the retirement home in the middle, the town hall and the coffee
+	-- shop to the west, the grocery and the weapon shop to the east, the gas station on the north-east corner
+	-- lot; the shuttle waits at the curb by the grocery
+	local walkEdge = OUTER + OUTER_WIDTH / 2 + WALK
+	for _, lot in { { "RetirementHome", 0 }, { "TownHall", -82 }, { "CoffeeShop", -124 }, { "Grocery", 84 }, { "WeaponShop", 124 } } do
+		local curb = Vector3.new(lot[2], 0, -walkEdge)
+		Buildings.Build(groups, lot[1], CFrame.lookAt(curb, Vector3.new(lot[2], 0, 0)), rng)
 	end
-	for _, side in { -1, 1 } do
-		Vegetation.Bed(garden, (home * CFrame.new(side * 19, 0, -19.6)).Position, (home * CFrame.new(side * 37, 0, -19.6)).Position, { "Rose" }, rng)
-		Vegetation.Bush(garden, "Pointed", (home * CFrame.new(side * 8.6, 0, -28.4)).Position, rng)
-	end
-	-- retirement home: a short iron fence in front of the hedges, the shuttle at the curb of the perimeter street
-	-- (door toward the home), two mobility scooters on the porch
-	for _, side in { -1, 1 } do
-		Fences.Iron(groups.Yards, (home * CFrame.new(side * 17.5, 0, -21.4)).Position, (home * CFrame.new(side * 38.5, 0, -21.4)).Position)
+	local station = Vector3.new(GAS_STATION, 0, -GAS_STATION)
+	Buildings.Build(groups, "GasStation", CFrame.lookAt(station, Vector3.new(OUTER, 0, -OUTER)), rng)
+	for _, spot in { { -82, -187, 24 }, { -124, -178, 14 }, { 84, -181, 20 }, { 124, -181, 14 }, { GAS_STATION, -GAS_STATION, 32 } } do
+		table.insert(taken, { Position = Vector3.new(spot[1], 0, spot[2]), Radius = spot[3] })
+		if spot[1] < 150 then
+			table.insert(blockers, { Vector3.new(spot[1], 0, spot[2]), Vector3.new(0, 0, -1), spot[3] * 0.6 })
+		end
 	end
 	Vehicles.Build(vehicles, "Shuttle", CFrame.new(60, 0, -(OUTER + 3.2)) * CFrame.Angles(0, math.pi / 2, 0))
-	for _, side in { -1, 1 } do
-		Vehicles.Build(vehicles, "Scooter", home * CFrame.new(side * 13, 1.2, -22) * CFrame.Angles(0, side * 0.4, 0))
-	end
 
 	-- a ring of trees behind the houses: even spacing with a little jitter, kinds in a repeating pattern,
-	-- never inside a building or on the perimeter street (near the diagonals the circle cuts inside its corners)
+	-- never inside a building or on the perimeter street (near the diagonals the circle cuts inside its corners),
+	-- and only where the arena can see them (not straight behind a house)
 	local ring = { "Oak", "Evergreen", "Maple", "Roadside", "Evergreen", "Cherry" }
 	local planted = 0
 	for i = 0, 43 do
@@ -529,6 +518,14 @@ local function buildScenery(groups: { [string]: Model }): { { { number } } }
 		local radius = d + 66 + (i % 3) * 5 + rng:NextNumber(-1.5, 1.5)
 		local position = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 		local free = math.max(math.abs(position.X), math.abs(position.Z)) > OUTER + OUTER_WIDTH / 2 + WALK + 3
+		for _, blocker in blockers do
+			-- straight behind a house its roof hides a tree from the whole arena: don't plant it there
+			local offset = position - blocker[1]
+			local n = blocker[2]
+			if offset:Dot(n) > 0 and math.abs(offset:Dot(Vector3.new(-n.Z, 0, n.X))) < blocker[3] then
+				free = false
+			end
+		end
 		for _, spot in taken do
 			if (spot.Position - position).Magnitude < spot.Radius then
 				free = false
@@ -604,8 +601,7 @@ end
 -- Prop scenes from the prop library, each where it makes sense: road works on Knitting Way, newspaper boxes at
 -- two ring-road corners, Grandma's cookie stall (with a customer's scooter) on the east lawn, giant knitting
 -- landmarks in the four lawn corners, jersey barriers behind the ROAD CLOSED barricades, and outside the
--- arena the retirement home's BINGO sign, bike rack, porch knitting and shopping carts, plus retirement-home
--- billboards in the four map corners. Solid pieces inside the arena are round obstacles; cones, barriers
+-- arena retirement-home billboards in three map corners (the gas station has the fourth). Solid pieces inside the arena are round obstacles; cones, barriers
 -- and the open manhole are decoration that grandmas walk through.
 local function buildPropScenes(groups: { [string]: Model })
 	local d = Config.Map.WallDistance
@@ -628,7 +624,7 @@ local function buildPropScenes(groups: { [string]: Model })
 
 	-- newspaper boxes on the ring road's outer sidewalk at two corners, facing the road
 	for _, corner in { { 1, 1 }, { -1, -1 } } do
-		for k, z in { 44, 45.7 } do
+		for k, z in { 50, 51.7 } do
 			local at = Vector3.new(corner[1] * 86.2, Streets.WalkHeight, corner[2] * z)
 			local facing = CFrame.lookAt(at, at - Vector3.new(corner[1], 0, 0))
 			if k == 1 then
@@ -636,19 +632,19 @@ local function buildPropScenes(groups: { [string]: Model })
 			else
 				StreetProps.NewspaperBox(street, facing, Color3.fromRGB(220, 60, 50), "DAILY DENTURE")
 			end
-			addObstacle(at, 1.0)
 		end
+		addObstacle(Vector3.new(corner[1] * 86.2, 0, corner[2] * 50.85), 1.9) -- one circle for the pair
 	end
 
 	-- Grandma's cookie stall on the east lawn, facing the ring road, supply crates behind the counter, and a
-	-- customer's mobility scooter (its obstacle overlaps the stall's: one blob, no pocket)
+	-- customer's mobility scooter parked a lane's width away (no notch between the two)
 	local stallAt = Vector3.new(99.2, 0, -32)
 	local stall = CFrame.lookAt(stallAt, stallAt - Vector3.xAxis)
 	GrandmaProps.CookieStall(landmarks, stall)
 	YardProps.Crate(landmarks, stall * CFrame.new(2.2, 0, 1.9) * CFrame.Angles(0, 0.2, 0), "FLOUR", 1.6)
 	YardProps.Crate(landmarks, stall * CFrame.new(3.8, 0, 1.6), "COOKIES", 1.4)
 	addObstacle(stallAt, 4.7)
-	local scooter = Vector3.new(96.6, 0, -27.2)
+	local scooter = Vector3.new(96.6, 0, -22.5)
 	Vehicles.Build(vehicles, "Scooter", CFrame.lookAt(scooter, scooter + Vector3.xAxis))
 	addObstacle(scooter, 1.4)
 
@@ -675,24 +671,30 @@ local function buildPropScenes(groups: { [string]: Model })
 		end
 	end
 
-	-- retirement home grounds: BINGO sign and a bike rack on the lawn facing the arena, knitting basket and
-	-- slippers on the porch, shopping carts on the sidewalk by the shuttle
-	local home = CFrame.lookAt(Vector3.new(0, 0, -d - 55), Vector3.zero)
-	GrandmaProps.BingoSign(landmarks, home * CFrame.new(28, 0, -27))
-	local homeRack = home * CFrame.new(-28, 0, -27)
-	StreetProps.BikeRack(street, homeRack, 2)
-	StreetProps.Bicycle(street, homeRack, Color3.fromRGB(150, 110, 230))
-	GrandmaProps.KnittingBasket(landmarks, home * CFrame.new(-6.4, 1.2, -18.6))
-	GrandmaProps.Slippers(landmarks, home * CFrame.new(3.6, 1.2, -16.6) * CFrame.Angles(0, 0.3, 0))
-	for _, cart in { { 49, -160.2, 0.4 }, { 52.4, -160.6, -0.3 } } do
-		GrandmaProps.ShoppingCart(street, CFrame.new(cart[1], Streets.WalkHeight, cart[2]) * CFrame.Angles(0, cart[3], 0), rng)
-	end
-
 	-- retirement-home billboards in the four map corners, facing the arena over the perimeter street corners
 	local slogans = { "BINGO EVERY NIGHT!", "NOW WITH EXTRA PUDDING!", "FREE SLIPPERS FOR NEW RESIDENTS!", "GRANDMA WRANGLERS WANTED!" }
 	for i, corner in CORNERS do
+		if corner[1] == 1 and corner[2] == -1 then
+			continue -- the gas station's corner
+		end
 		local at = Vector3.new(corner[1], 0, corner[2]) * BILLBOARD
 		GrandmaProps.RetirementBillboard(landmarks, CFrame.lookAt(at, Vector3.zero), slogans[i])
+	end
+end
+
+-- Nothing outside the arena is ever touched: players stay inside the invisible walls and grandmas inside the
+-- fence. Everything out there (houses, shops, yards, perimeter street) stops colliding and answering raycasts,
+-- which keeps physics and hit tests lean. The ground stays solid.
+local function settleOutside(map: Folder)
+	local limit = Config.Map.WallDistance + 4
+	for _, part in map:GetDescendants() do
+		if part:IsA("BasePart") and part.Name ~= "Ground" then
+			local p = part.Position
+			if math.abs(p.X) > limit or math.abs(p.Z) > limit then
+				part.CanCollide = false
+				part.CanQuery = false
+			end
+		end
 	end
 end
 
@@ -751,6 +753,7 @@ function MapBuilder.Build(): Folder
 	buildStreets({ Road = groups.Roads, Walk = groups.Sidewalks }, aprons)
 	buildLawn(groups)
 	buildPropScenes(groups)
+	settleOutside(map)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "PlayerSpawn"

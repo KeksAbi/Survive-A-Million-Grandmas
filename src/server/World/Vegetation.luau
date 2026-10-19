@@ -164,7 +164,7 @@ function TREES.Ornamental(L: Layers, base: CFrame, rng: Random, s: number)
 	leafMass(L.FoliageA, fork + Vector3.new(0, 1.3 * s, 0), 2.4 * s, K.Light(leaves), rng)
 end
 
--- Tall conical evergreen: five twisted spire tiers in alternating tones with drooping leaf tips.
+-- Tall conical evergreen: five twisted cone tiers in alternating tones with drooping leaf tips.
 function TREES.Evergreen(L: Layers, base: CFrame, rng: Random, s: number)
 	trunk(L, base, { 1.0 * s, 0.8 * s }, 1.5 * s, 0, rng)
 	for i = 0, 4 do
@@ -172,12 +172,13 @@ function TREES.Evergreen(L: Layers, base: CFrame, rng: Random, s: number)
 		local height = (3.6 - i * 0.25) * s
 		local tier = base * CFrame.new(0, (2.2 + i * 2.3) * s, 0) * CFrame.Angles(0, i * 0.4, 0)
 		local color = if i % 2 == 0 then PALETTE.Evergreen else K.Light(PALETTE.Evergreen)
-		K.Spire(foliage(L, i), width, height, tier, color, true)
+		K.Cone(foliage(L, i), width, height, tier, color, true, 8)
 		for _, a in { 0.4, 0.4 + math.pi } do
 			local tip = tier * CFrame.Angles(0, a, 0) * CFrame.new(0, 0.3 * s, -width * 0.5)
 			K.Wedge(foliage(L, i), Vector3.new(0.2, 0.5 * s, 1.0 * s), tip * CFrame.Angles(math.rad(-20), 0, 0), K.Dark(PALETTE.Evergreen), true)
 		end
 	end
+	K.Cone(L.FoliageA, 1.4 * s, 1.3 * s, base * CFrame.new(0, 13.8 * s, 0), K.Light(PALETTE.Evergreen), true, 6) -- pointed tip
 end
 
 -- Rounded flowering tree: four branches, pink blossom masses in three tones, scattered petals.
@@ -261,11 +262,11 @@ function BUSHES.Flowering(L: Layers, base: CFrame, rng: Random, s: number)
 	end
 end
 
--- Tall pointed ornamental shrub (arborvitae): three stacked, twisted spires.
+-- Tall pointed ornamental shrub (arborvitae): three stacked, twisted cones.
 function BUSHES.Pointed(L: Layers, base: CFrame, _rng: Random, s: number)
 	local green = PALETTE.Evergreen
 	for i, tier in { { 1.9, 1.7, 0 }, { 1.5, 1.6, 1.1 }, { 1.0, 1.5, 2.1 } } do
-		K.Spire(foliage(L, i), tier[1] * s, tier[2] * s, base * CFrame.new(0, tier[3] * s, 0) * CFrame.Angles(0, i * 0.5, 0), if i == 2 then K.Light(green) else green, true)
+		K.Cone(foliage(L, i), tier[1] * s, tier[2] * s, base * CFrame.new(0, tier[3] * s, 0) * CFrame.Angles(0, i * 0.5, 0), if i == 2 then K.Light(green) else green, true, 6)
 	end
 	K.Block(L.Wood, Vector3.new(0.4, 0.5, 0.4) * s, base * CFrame.new(0, 0.1 * s, 0), PALETTE.Bark, true)
 end

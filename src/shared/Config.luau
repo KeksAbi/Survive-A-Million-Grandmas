@@ -176,11 +176,16 @@ return {
 		InkColor = Color3.fromRGB(24, 22, 30),
 		InkWidth = 0.3, -- studs: black lines drawn as parts (window frames, corners)
 		-- Silhouette outlines are Highlights (outline only, hidden behind walls). Roblox draws at most 31 at
-		-- once: the map uses 16 groups, all grandmas share 1, each character gets 1 (8 players max).
+		-- once: the map uses 16 groups, all grandmas share 1, each character gets 1 (8 players max). Each
+		-- Highlight redraws its whole group, so the outline cost grows with the part count (~26k map parts).
 		Outlines = true,
 		OutlineTag = "ComicOutline", -- CollectionService tag of the map's outline-group Models
 		OutlineEnemies = true,
 		OutlineCharacters = true,
+		-- Phones: outline groups to leave out on touch devices if the outline pass is too slow there. The house
+		-- groups outside the arena are the biggest (about 60% of the map's parts), e.g.
+		-- { "HouseWalls", "HouseRoofs", "HouseDetails", "Yards" }. Empty = full outlines everywhere.
+		SkipOutlinesOnTouch = {} :: { string },
 		FirstPersonDistance = 1.5, -- camera this close to the own head = first person: own outline off
 		-- Small decorations: grass tufts, road and sidewalk cracks, asphalt patches, manholes, drains and the
 		-- small yard clutter (hose reels, watering cans, flowerpots, slippers, tool racks, knitting baskets,
