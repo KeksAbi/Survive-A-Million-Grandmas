@@ -1,14 +1,21 @@
 --!nonstrict
--- Builds "Grandma's Retirement Neighborhood" from primitives at server start (no external assets).
--- Layout: open grass arena with a square ring road and a central park + fountain. A fence and
--- invisible walls close the arena at Config.Map.WallDistance; houses and the retirement home stand
--- outside the fence as scenery. Enemies spawn at 8 marked points just inside the fence.
--- Everything inside the arena is low and open, because enemy AI walks in straight lines.
+-- Builds "Grandma's Retirement Neighborhood" in the comic-book style (World/ComicKit + World/Props) at server
+-- start, no external assets. Layout: open grass arena with a square ring road around a perfectly square park
+-- with a fountain. A picket fence and invisible walls close the arena at Config.Map.WallDistance; houses, the
+-- retirement home and the school bus stand outside the fence as scenery. Enemies spawn at 8 marked points just
+-- inside the fence. Everything inside the arena is low, small and round-ish, because enemy AI walks in
+-- straight lines (obstacles are circles, see GetObstacles).
+-- Props go into outline-group Models (ComicKit.OutlineGroup): each group gets one ink outline on the client.
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+local ComicKit = require(script.Parent.ComicKit)
+local Props = require(script.Parent.Props)
+
+local K = ComicKit
+local C = ComicKit.Colors
 
 local MapBuilder = {}
 
@@ -27,55 +34,10 @@ local function addObstacle(position: Vector3, radius: number)
 end
 local rng = Random.new(1337) -- fixed seed: same map every server
 
-local COLORS = {
-	Grass = Color3.fromRGB(96, 186, 72),
-	Road = Color3.fromRGB(70, 72, 80),
-	Sidewalk = Color3.fromRGB(205, 205, 200),
-	Path = Color3.fromRGB(225, 210, 175),
-	Trunk = Color3.fromRGB(120, 80, 45),
-	Leaves = { Color3.fromRGB(70, 170, 60), Color3.fromRGB(95, 195, 70), Color3.fromRGB(55, 150, 65) },
-	Houses = {
-		Color3.fromRGB(250, 215, 90),
-		Color3.fromRGB(110, 170, 240),
-		Color3.fromRGB(240, 130, 120),
-		Color3.fromRGB(150, 220, 150),
-		Color3.fromRGB(245, 245, 235),
-		Color3.fromRGB(200, 160, 230),
-	},
-	Roofs = { Color3.fromRGB(200, 70, 60), Color3.fromRGB(60, 90, 160), Color3.fromRGB(90, 90, 100) },
-	White = Color3.fromRGB(250, 250, 245),
-	Window = Color3.fromRGB(150, 210, 245),
-	Door = Color3.fromRGB(120, 70, 40),
-	Water = Color3.fromRGB(80, 190, 255),
-	SpawnMark = Color3.fromRGB(255, 60, 60),
-}
-
-local function block(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Anchored = true
-	part.Size = size
-	part.CFrame = cframe
-	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = parent
-	return part
-end
-
--- Upright cylinder standing on `base` (Roblox cylinders lie along X, so rotate them).
-local function cylinder(parent: Instance, name: string, height: number, diameter: number, base: Vector3, color: Color3, material: Enum.Material?): Part
-	local part = block(parent, name, Vector3.new(height, diameter, diameter), CFrame.new(base + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)), color, material)
-	part.Shape = Enum.PartType.Cylinder
-	return part
-end
-
-local function ball(parent: Instance, name: string, diameter: number, center: Vector3, color: Color3): Part
-	local part = block(parent, name, Vector3.new(diameter, diameter, diameter), CFrame.new(center), color)
-	part.Shape = Enum.PartType.Ball
-	return part
-end
+local RING = 75 -- ring road center line, studs from the map center
+local ROAD_WIDTH = 16
+local SIDES = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } }
+local CORNERS = { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }
 
 local function folder(parent: Instance, name: string): Folder
 	local f = Instance.new("Folder")
@@ -84,272 +46,161 @@ local function folder(parent: Instance, name: string): Folder
 	return f
 end
 
-local function tree(parent: Instance, position: Vector3)
-	local model = Instance.new("Model")
-	model.Name = "Tree"
-	local height = rng:NextNumber(5, 8)
-	cylinder(model, "Trunk", height, 1.4, position, COLORS.Trunk)
-	addObstacle(position, 0.9)
-	local leaves = COLORS.Leaves[rng:NextInteger(1, #COLORS.Leaves)]
-	ball(model, "Leaves", rng:NextNumber(7, 9), position + Vector3.new(0, height + 2.5, 0), leaves)
-	ball(model, "Leaves2", rng:NextNumber(5, 6), position + Vector3.new(rng:NextNumber(-1.5, 1.5), height + 5.5, rng:NextNumber(-1.5, 1.5)), leaves)
-	model.Parent = parent
-end
-
-local function bush(parent: Instance, position: Vector3)
-	local size = rng:NextNumber(3, 4.5)
-	ball(parent, "Bush", size, position + Vector3.new(0, 1.2, 0), COLORS.Leaves[rng:NextInteger(1, #COLORS.Leaves)])
-	addObstacle(position, size * 0.45)
-end
-
-local function lamp(parent: Instance, position: Vector3)
-	local model = Instance.new("Model")
-	model.Name = "StreetLamp"
-	cylinder(model, "Pole", 11, 0.5, position, Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
-	addObstacle(position, 0.5)
-	block(model, "Head", Vector3.new(1.6, 0.6, 1.6), CFrame.new(position + Vector3.new(0, 11.3, 0)), Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
-	local bulb = ball(model, "Bulb", 1.3, position + Vector3.new(0, 10.6, 0), Color3.fromRGB(255, 235, 170))
-	bulb.Material = Enum.Material.Neon
-	local light = Instance.new("PointLight")
-	light.Range = 18
-	light.Brightness = 1.2
-	light.Color = Color3.fromRGB(255, 225, 170)
-	light.Parent = bulb
-	model.Parent = parent
-end
-
-local function bench(parent: Instance, cframe: CFrame)
-	local model = Instance.new("Model")
-	model.Name = "Bench"
-	addObstacle(cframe.Position, 2.8)
-	local wood = Color3.fromRGB(150, 95, 50)
-	local iron = Color3.fromRGB(40, 40, 45)
-	block(model, "Seat", Vector3.new(6, 0.4, 1.8), cframe * CFrame.new(0, 1.6, 0), wood)
-	block(model, "Back", Vector3.new(6, 1.4, 0.3), cframe * CFrame.new(0, 2.6, 0.8), wood)
-	block(model, "LegL", Vector3.new(0.4, 1.4, 1.6), cframe * CFrame.new(-2.5, 0.7, 0), iron)
-	block(model, "LegR", Vector3.new(0.4, 1.4, 1.6), cframe * CFrame.new(2.5, 0.7, 0), iron)
-	model.Parent = parent
-end
-
-local function mailbox(parent: Instance, cframe: CFrame)
-	block(parent, "MailboxPost", Vector3.new(0.4, 3, 0.4), cframe * CFrame.new(0, 1.5, 0), Color3.fromRGB(120, 80, 45))
-	block(parent, "Mailbox", Vector3.new(1, 1.1, 1.8), cframe * CFrame.new(0, 3.4, 0), Color3.fromRGB(220, 40, 40))
-end
-
--- Boxy suburban house. Built facing -Z, then turned so the front faces the arena center.
-local function house(parent: Instance, position: Vector3)
-	local model = Instance.new("Model")
-	model.Name = "House"
-	local w, h, d = rng:NextNumber(20, 26), rng:NextNumber(12, 15), rng:NextNumber(16, 20)
-	local wallColor = COLORS.Houses[rng:NextInteger(1, #COLORS.Houses)]
-	local roofColor = COLORS.Roofs[rng:NextInteger(1, #COLORS.Roofs)]
-	local base = CFrame.new(position)
-
-	block(model, "Body", Vector3.new(w, h, d), base * CFrame.new(0, h / 2, 0), wallColor)
-	-- stepped roof (three shrinking slabs) for a chunky low-poly look
-	for i = 0, 2 do
-		block(model, "Roof" .. i, Vector3.new(w + 2 - i * 6, 1.6, d + 2 - i * 5), base * CFrame.new(0, h + 0.8 + i * 1.6, 0), roofColor)
+-- One tree, leafy or pine, with its trunk as an enemy obstacle.
+local function tree(group: Instance, position: Vector3, pine: boolean)
+	if pine then
+		Props.Pine(group, position, rng)
+	else
+		Props.Tree(group, position, rng)
 	end
-	block(model, "Chimney", Vector3.new(2, 4, 2), base * CFrame.new(w / 4, h + 3, d / 6), Color3.fromRGB(170, 80, 60))
-	block(model, "Door", Vector3.new(3.2, 6, 0.4), base * CFrame.new(0, 3, -d / 2 - 0.1), COLORS.Door)
-	block(model, "Step", Vector3.new(5, 0.6, 2.5), base * CFrame.new(0, 0.3, -d / 2 - 1.2), COLORS.Sidewalk)
-	for _, x in { -w / 3.2, w / 3.2 } do
-		block(model, "Window", Vector3.new(4, 3.5, 0.3), base * CFrame.new(x, h * 0.55, -d / 2 - 0.1), COLORS.Window, Enum.Material.Glass)
-		block(model, "WindowFrame", Vector3.new(4.6, 0.4, 0.4), base * CFrame.new(x, h * 0.55 - 1.9, -d / 2 - 0.15), COLORS.White)
-	end
-	-- little picket fence and mailbox in the front yard
-	block(model, "YardFence", Vector3.new(w + 4, 1.6, 0.3), base * CFrame.new(0, 0.8, -d / 2 - 6), COLORS.White)
-	mailbox(model, base * CFrame.new(w / 2 - 1, 0, -d / 2 - 7.5))
-
-	model.WorldPivot = base
-	model:PivotTo(CFrame.lookAt(position, Vector3.new(0, position.Y, 0)))
-	model.Parent = parent
+	addObstacle(position, 1)
 end
 
-local function retirementHome(parent: Instance, position: Vector3)
-	local model = Instance.new("Model")
-	model.Name = "RetirementHome"
-	local base = CFrame.new(position)
-	local cream = Color3.fromRGB(240, 220, 185)
-	block(model, "Body", Vector3.new(80, 22, 30), base * CFrame.new(0, 11, 0), cream)
-	block(model, "Roof", Vector3.new(84, 2, 34), base * CFrame.new(0, 23, 0), Color3.fromRGB(190, 75, 60))
-	block(model, "Tower", Vector3.new(20, 10, 20), base * CFrame.new(0, 29, 0), cream)
-	block(model, "TowerRoof", Vector3.new(23, 2, 23), base * CFrame.new(0, 35, 0), Color3.fromRGB(190, 75, 60))
-	block(model, "Porch", Vector3.new(30, 1, 10), base * CFrame.new(0, 0.5, -20), COLORS.Sidewalk)
-	for _, x in { -12, -4, 4, 12 } do
-		cylinder(model, "Column", 12, 1.6, (base * CFrame.new(x, 1, -24)).Position, COLORS.White)
+local function bush(group: Instance, position: Vector3)
+	Props.Bush(group, position, rng)
+	addObstacle(position, 1.7)
+end
+
+-- Parked car: two circles along its length keep grandmas off it.
+local function car(group: Instance, cframe: CFrame, kind: string?)
+	Props.Car(group, cframe, C.Cars[rng:NextInteger(1, #C.Cars)], kind)
+	for _, z in { -2.8, 2.8 } do
+		addObstacle((cframe * CFrame.new(0, 0, z)).Position, 2.9)
 	end
-	block(model, "PorchRoof", Vector3.new(32, 1.2, 10), base * CFrame.new(0, 13.5, -20), COLORS.White)
-	block(model, "Doors", Vector3.new(8, 9, 0.5), base * CFrame.new(0, 5.5, -15.2), COLORS.Door)
-	for row = 0, 1 do
-		for col = -3, 3 do
-			if col ~= 0 then
-				block(model, "Window", Vector3.new(5, 4, 0.4), base * CFrame.new(col * 10, 6 + row * 9, -15.2), COLORS.Window, Enum.Material.Glass)
+end
+
+local function buildGroundAndRoads(map: Folder, roads: Model)
+	local size = Config.Map.GroundSize
+	K.Block(map, Vector3.new(size, 2, size), CFrame.new(0, -1, 0), C.Grass).Name = "Ground"
+
+	-- mowed stripes on the square park lawn (no outline: flat ground)
+	local park = RING - ROAD_WIDTH / 2 - 4
+	local stripe = park * 2 / 9
+	for i = 0, 8, 2 do
+		K.Block(map, Vector3.new(stripe, 0.04, park * 2), CFrame.new(-park + stripe * (i + 0.5), 0.02, 0), C.GrassLight, true)
+	end
+
+	-- square ring road: asphalt, dashed center line, edge lines, curbs, sidewalks with joints
+	for _, side in SIDES do
+		local horizontal = side[1] == 0
+		local length = 2 * RING + ROAD_WIDTH
+		local cf = CFrame.new(side[1] * RING, 0.05, side[2] * RING)
+		if not horizontal then
+			cf *= CFrame.Angles(0, math.pi / 2, 0) -- local X runs along the road
+		end
+		K.Block(roads, Vector3.new(length, 0.1, ROAD_WIDTH), cf, C.Road).Name = "Road"
+		local straight = 2 * RING - ROAD_WIDTH -- between the corner squares
+		for t = -straight / 2 + 4, straight / 2 - 4, 8 do
+			K.Block(roads, Vector3.new(4, 0.04, 0.45), cf * CFrame.new(t, 0.07, 0), C.RoadLine, true)
+		end
+		for _, edge in { -1, 1 } do
+			K.Block(roads, Vector3.new(straight, 0.04, 0.3), cf * CFrame.new(0, 0.07, edge * (ROAD_WIDTH / 2 - 0.8)), C.RoadEdge, true)
+			K.Block(roads, Vector3.new(length, 0.4, 0.45), cf * CFrame.new(0, 0.15, edge * (ROAD_WIDTH / 2 + 0.2)), C.Curb, true)
+			local walk = cf * CFrame.new(0, 0.1, edge * (ROAD_WIDTH / 2 + 2))
+			K.Block(roads, Vector3.new(length + 8, 0.3, 4), walk, C.Sidewalk).Name = "Sidewalk"
+			for t = -length / 2, length / 2, 8 do
+				K.Block(roads, Vector3.new(0.2, 0.04, 4), walk * CFrame.new(t, 0.16, 0), C.SidewalkJoint, true)
 			end
 		end
+		-- manhole cover
+		local manhole = (cf * CFrame.new(30, 0, 3)).Position
+		K.Disc(roads, 2.9, 0.06, manhole + Vector3.new(0, 0.05, 0), C.Ink, true)
+		K.Disc(roads, 2.4, 0.06, manhole + Vector3.new(0, 0.08, 0), C.MetalDark, true)
 	end
 
-	local sign = block(model, "Sign", Vector3.new(30, 4, 0.6), base * CFrame.new(0, 16.5, -15.4), Color3.fromRGB(40, 70, 140))
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 25
-	gui.Parent = sign
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Text = "RETIREMENT HOME"
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBlack
-	label.TextColor3 = Color3.fromRGB(255, 225, 120)
-	label.Parent = gui
-
-	model.WorldPivot = base
-	model:PivotTo(CFrame.lookAt(position, Vector3.new(0, position.Y, 0)))
-	model.Parent = parent
-end
-
-local function buildGroundAndRoads(map: Folder)
-	local size = Config.Map.GroundSize
-	block(map, "Ground", Vector3.new(size, 2, size), CFrame.new(0, -1, 0), COLORS.Grass, Enum.Material.Grass)
-
-	-- square ring road (center line radius 75) with sidewalks
-	local roads = folder(map, "Roads")
-	local r, width = 75, 16
-	for _, side in { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } } do
-		local horizontal = side[1] == 0
-		local length = 2 * r + width
-		local cf = CFrame.new(side[1] * r, 0.05, side[2] * r)
-		local roadSize = if horizontal then Vector3.new(length, 0.1, width) else Vector3.new(width, 0.1, length)
-		block(roads, "Road", roadSize, cf, COLORS.Road, Enum.Material.Asphalt)
+	-- park paths from the fountain to the ring road, with stone edging
+	for _, dir in { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis } do
+		local path = CFrame.lookAt(dir * 35, dir * 36) -- local -Z runs along the path
+		K.Block(roads, Vector3.new(6, 0.2, 50), path * CFrame.new(0, 0.1, 0), C.Path).Name = "ParkPath"
 		for _, edge in { -1, 1 } do
-			local offset = (width / 2 + 2) * edge
-			local walkCf = if horizontal then cf * CFrame.new(0, 0.1, offset) else cf * CFrame.new(offset, 0.1, 0)
-			local walkSize = if horizontal then Vector3.new(length + 8, 0.3, 4) else Vector3.new(4, 0.3, length + 8)
-			block(roads, "Sidewalk", walkSize, walkCf, COLORS.Sidewalk, Enum.Material.Concrete)
+			K.Block(roads, Vector3.new(0.4, 0.3, 50), path * CFrame.new(edge * 3.2, 0.15, 0), C.Stone, true)
 		end
 	end
-	-- park paths from the fountain to the ring road
-	for _, dir in { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1) } do
-		local center = dir * 35
-		local size3 = if dir.X ~= 0 then Vector3.new(50, 0.2, 6) else Vector3.new(6, 0.2, 50)
-		block(roads, "ParkPath", size3, CFrame.new(center + Vector3.new(0, 0.1, 0)), COLORS.Path, Enum.Material.Concrete)
-	end
-end
 
--- Yellow school bus (scenery outside the fence).
-local function schoolBus(parent: Instance, cframe: CFrame)
-	local model = Instance.new("Model")
-	model.Name = "SchoolBus"
-	local yellow = Color3.fromRGB(255, 200, 30)
-	local black = Color3.fromRGB(30, 30, 35)
-	block(model, "Body", Vector3.new(24, 7, 7.5), cframe * CFrame.new(0, 5, 0), yellow)
-	block(model, "Hood", Vector3.new(4, 4, 7), cframe * CFrame.new(13.5, 3.5, 0), yellow)
-	block(model, "Roof", Vector3.new(24.4, 0.6, 7.9), cframe * CFrame.new(0, 8.7, 0), Color3.fromRGB(245, 245, 240))
-	block(model, "StripeL", Vector3.new(24.2, 0.5, 0.2), cframe * CFrame.new(0, 3.2, -3.8), black)
-	block(model, "StripeR", Vector3.new(24.2, 0.5, 0.2), cframe * CFrame.new(0, 3.2, 3.8), black)
-	for i = -4, 4 do
-		block(model, "WindowL", Vector3.new(2, 2, 0.2), cframe * CFrame.new(i * 2.5, 6.3, -3.8), COLORS.Window, Enum.Material.Glass)
-		block(model, "WindowR", Vector3.new(2, 2, 0.2), cframe * CFrame.new(i * 2.5, 6.3, 3.8), COLORS.Window, Enum.Material.Glass)
-	end
-	block(model, "Windshield", Vector3.new(0.2, 2.6, 6.4), cframe * CFrame.new(12.1, 6.4, 0), COLORS.Window, Enum.Material.Glass)
-	for _, x in { -8, 9 } do
-		for _, z in { -3.6, 3.6 } do
-			local wheel = block(model, "Wheel", Vector3.new(1, 3, 3), cframe * CFrame.new(x, 1.5, z), black)
-			wheel.Shape = Enum.PartType.Cylinder
-			wheel.CFrame = cframe * CFrame.new(x, 1.5, z) * CFrame.Angles(0, math.rad(90), 0)
+	-- crosswalks where the park paths cross the ring road
+	for _, side in SIDES do
+		local alongX = side[1] ~= 0
+		for i = -2, 2 do
+			local offset = if alongX then Vector3.new(0, 0, i * 1.6) else Vector3.new(i * 1.6, 0, 0)
+			local stripeSize = if alongX then Vector3.new(15, 0.12, 0.8) else Vector3.new(0.8, 0.12, 15)
+			K.Block(roads, stripeSize, CFrame.new(Vector3.new(side[1] * RING, 0.12, side[2] * RING) + offset), C.Trim, true)
 		end
 	end
-	model.Parent = parent
 end
 
--- Round flower bed: soil disc with a ring of colorful blossoms (flat, nothing to walk around).
-local function flowerBed(parent: Instance, position: Vector3)
-	local soil = cylinder(parent, "FlowerSoil", 0.5, 7, position, Color3.fromRGB(110, 75, 45))
-	soil.CanCollide = false
-	local colors = { Color3.fromRGB(255, 90, 130), Color3.fromRGB(255, 220, 60), Color3.fromRGB(180, 110, 255), Color3.fromRGB(255, 255, 255) }
-	for i = 1, 10 do
-		local angle = i / 10 * math.pi * 2
-		local blossom = ball(parent, "Flower", 1, position + Vector3.new(math.cos(angle) * 2.4, 0.9, math.sin(angle) * 2.4), colors[i % #colors + 1])
-		blossom.CanCollide = false
-	end
-	ball(parent, "FlowerCenter", 1.4, position + Vector3.new(0, 1, 0), colors[2]).CanCollide = false
-end
+local function buildPark(groups: { [string]: Model })
+	Props.Fountain(groups.Park, Vector3.zero)
+	addObstacle(Vector3.zero, 9.6)
 
--- White zebra stripes across the ring road where a park path meets it.
-local function crosswalk(parent: Instance, center: Vector3, alongX: boolean)
-	for i = -2, 2 do
-		local offset = if alongX then Vector3.new(0, 0, i * 1.6) else Vector3.new(i * 1.6, 0, 0)
-		local size = if alongX then Vector3.new(15, 0.12, 0.8) else Vector3.new(0.8, 0.12, 15)
-		local stripe = block(parent, "Crosswalk", size, CFrame.new(center + offset + Vector3.new(0, 0.12, 0)), COLORS.White)
-		stripe.CanCollide = false
-	end
-end
-
-local function buildPark(map: Folder)
-	local park = folder(map, "Park")
-	-- fountain
-	cylinder(park, "FountainBase", 1.6, 18, Vector3.new(0, 0, 0), COLORS.Sidewalk, Enum.Material.Concrete)
-	addObstacle(Vector3.zero, 9.2)
-	local water = cylinder(park, "FountainWater", 0.3, 15.5, Vector3.new(0, 1.4, 0), COLORS.Water)
-	water.Material = Enum.Material.Glass
-	water.Transparency = 0.2
-	cylinder(park, "FountainPillar", 5, 2.2, Vector3.new(0, 1.6, 0), COLORS.Sidewalk, Enum.Material.Concrete)
-	cylinder(park, "FountainBowl", 0.8, 6, Vector3.new(0, 6.6, 0), COLORS.Sidewalk, Enum.Material.Concrete)
-	ball(park, "FountainTop", 1.8, Vector3.new(0, 8.3, 0), COLORS.Water).Material = Enum.Material.Neon
-
-	-- benches around the fountain
+	-- benches and trash cans around the fountain
 	for i = 0, 3 do
 		local angle = math.rad(45 + i * 90)
 		local pos = Vector3.new(math.cos(angle) * 16, 0, math.sin(angle) * 16)
-		bench(park, CFrame.lookAt(pos, Vector3.new(0, 0, 0)))
+		Props.Bench(groups.StreetProps, CFrame.lookAt(pos, Vector3.zero))
+		addObstacle(pos, 2.8)
+		local canAngle = angle + math.rad(14)
+		local can = Vector3.new(math.cos(canAngle) * 17, 0, math.sin(canAngle) * 17)
+		Props.TrashCan(groups.StreetProps, can)
+		addObstacle(can, 1)
 	end
-	-- trees and bushes in the park quarters (low cover, not walls)
-	for _, quarter in { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } } do
-		tree(park, Vector3.new(quarter[1] * 40, 0, quarter[2] * 40))
-		bush(park, Vector3.new(quarter[1] * 28, 0, quarter[2] * 48))
-		bush(park, Vector3.new(quarter[1] * 50, 0, quarter[2] * 26))
+	-- trees, bushes and flower beds in the park quarters (low cover, not walls)
+	for i, quarter in CORNERS do
+		local trees = if i % 2 == 0 then groups.TreesA else groups.TreesB
+		tree(trees, Vector3.new(quarter[1] * 40, 0, quarter[2] * 40), false)
+		bush(groups.Bushes, Vector3.new(quarter[1] * 28, 0, quarter[2] * 48))
+		bush(groups.Bushes, Vector3.new(quarter[1] * 50, 0, quarter[2] * 26))
+		Props.FlowerBed(groups.Park, Vector3.new(quarter[1] * 22, 0, quarter[2] * 22), rng)
 	end
-	-- lamps at the inner corners of the ring road and along its outer side
-	for _, corner in { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } } do
-		lamp(park, Vector3.new(corner[1] * 64, 0, corner[2] * 64))
-		lamp(park, Vector3.new(corner[1] * 87, 0, corner[2] * 40))
-		lamp(park, Vector3.new(corner[1] * 40, 0, corner[2] * 87))
+	-- lamps at the inner corners of the ring road and along its outer side, hydrants by the outer sidewalk
+	for _, corner in CORNERS do
+		for _, pos in { Vector3.new(corner[1] * 64, 0, corner[2] * 64), Vector3.new(corner[1] * 87, 0, corner[2] * 40), Vector3.new(corner[1] * 40, 0, corner[2] * 87) } do
+			Props.Lamp(groups.StreetProps, pos)
+			addObstacle(pos, 0.8)
+		end
+		local hydrant = Vector3.new(corner[1] * 87, 0, corner[2] * 58)
+		Props.Hydrant(groups.StreetProps, CFrame.lookAt(hydrant, Vector3.new(0, 0, hydrant.Z)))
+		addObstacle(hydrant, 0.9)
 	end
-	-- flower beds on the diagonals between the benches and the trees
-	for _, quarter in { { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } } do
-		flowerBed(park, Vector3.new(quarter[1] * 22, 0, quarter[2] * 22))
+	-- one car parked at the outer curb of each side of the ring road
+	for i, side in SIDES do
+		local t = if i % 2 == 0 then 35 else -35
+		local along = if side[1] == 0 then Vector3.xAxis else Vector3.zAxis
+		local pos = Vector3.new(side[1], 0, side[2]) * (RING + 4.5) + along * t
+		car(groups.Cars, CFrame.lookAt(pos, pos + along), if i == 3 then "Pickup" else nil)
 	end
-	-- crosswalks where the four park paths cross the ring road
-	crosswalk(park, Vector3.new(75, 0.05, 0), true)
-	crosswalk(park, Vector3.new(-75, 0.05, 0), true)
-	crosswalk(park, Vector3.new(0, 0.05, 75), false)
-	crosswalk(park, Vector3.new(0, 0.05, -75), false)
 end
 
-local function buildBoundary(map: Folder)
+local function buildBoundary(map: Folder, fence: Model)
 	local boundary = folder(map, "Boundary")
 	local d = Config.Map.WallDistance
 	local length = d * 2
+	local posts = {}
 
-	for _, side in { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } } do
+	for _, side in SIDES do
 		local horizontal = side[1] == 0
 		local center = Vector3.new(side[1] * d, 0, side[2] * d)
 
 		-- invisible wall: keeps players in, lets bullets through
 		local wallSize = if horizontal then Vector3.new(length, 40, 2) else Vector3.new(2, 40, length)
-		local wall = block(boundary, "InvisibleWall", wallSize, CFrame.new(center + Vector3.new(0, 20, 0)), COLORS.White)
+		local wall = K.Block(boundary, wallSize, CFrame.new(center + Vector3.new(0, 20, 0)), C.Trim)
+		wall.Name = "InvisibleWall"
 		wall.Transparency = 1
 		wall.CanQuery = false
+		wall.CastShadow = false
 
-		-- white rail fence (posts every 14 studs)
-		for _, y in { 1.4, 3 } do
-			local railSize = if horizontal then Vector3.new(length, 0.5, 0.4) else Vector3.new(0.4, 0.5, length)
-			block(boundary, "Rail", railSize, CFrame.new(center + Vector3.new(0, y, 0)), COLORS.White)
-		end
-		for t = -d, d, 14 do
-			local pos = if horizontal then Vector3.new(t, 0, center.Z) else Vector3.new(center.X, 0, t)
-			block(boundary, "Post", Vector3.new(0.8, 4, 0.8), CFrame.new(pos + Vector3.new(0, 2, 0)), COLORS.White)
+		-- white picket fence between capped posts (corner posts only once)
+		local along = if horizontal then Vector3.xAxis else Vector3.zAxis
+		local step = length / Config.Map.FenceSections
+		for i = 0, Config.Map.FenceSections do
+			local at = center + along * (-d + i * step)
+			if i < Config.Map.FenceSections then
+				Props.PicketFence(fence, at, at + along * step, 3.2, 3.4, C.Trim)
+			end
+			local key = string.format("%d,%d", math.round(at.X), math.round(at.Z))
+			if not posts[key] then
+				posts[key] = true
+				Props.FencePost(fence, at, 4.4, C.Trim)
+			end
 		end
 	end
 end
@@ -362,29 +213,53 @@ local function buildSpawns(map: Folder)
 		local pos = Vector3.new(p[1] * s, 0, p[2] * s)
 		table.insert(spawnPositions, pos)
 		-- red circle on the ground marks the spawn area
-		local mark = cylinder(spawns, "SpawnMark", 0.15, 14, pos, COLORS.SpawnMark, Enum.Material.Neon)
+		local mark = K.Disc(spawns, 14, 0.15, pos, C.SpawnMark, true)
+		mark.Name = "SpawnMark"
+		mark.Material = Enum.Material.Neon
 		mark.Transparency = 0.45
-		mark.CanCollide = false
-		mark.CanQuery = false
 	end
 end
 
-local function buildScenery(map: Folder)
-	local scenery = folder(map, "Scenery")
+local function buildScenery(groups: { [string]: Model })
 	local d = Config.Map.WallDistance
-	-- houses along three sides; the retirement home owns the north side
+	-- houses along three sides, facing the arena; the retirement home owns the north side
+	local taken = { { Position = Vector3.new(0, 0, -d - 35), Radius = 50 }, { Position = Vector3.new(70, 0, -d - 18), Radius = 16 } }
+	local index = 0
 	for t = -110, 110, 44 do
-		house(scenery, Vector3.new(t, 0, d + 22)) -- south
-		house(scenery, Vector3.new(-d - 22, 0, t)) -- west
-		house(scenery, Vector3.new(d + 22, 0, t)) -- east
+		for _, position in { Vector3.new(t, 0, d + 22), Vector3.new(-d - 22, 0, t), Vector3.new(d + 22, 0, t) } do
+			index += 1
+			table.insert(taken, { Position = position, Radius = 28 })
+			local style = Props.HouseStyles[index % #Props.HouseStyles + 1]
+			local _, carSpot = Props.House(groups.Houses, groups.Yards, CFrame.lookAt(position, Vector3.zero), style, rng)
+			if carSpot then
+				Props.Car(groups.Cars, carSpot, C.Cars[rng:NextInteger(1, #C.Cars)], if index % 2 == 0 then "Pickup" else nil)
+			end
+		end
 	end
-	retirementHome(scenery, Vector3.new(0, 0, -d - 35))
-	schoolBus(scenery, CFrame.new(70, 0, -d - 18))
-	-- trees scattered behind the houses and in the arena's outer lawn
-	for _ = 1, 40 do
+	local home = Vector3.new(0, 0, -d - 35)
+	Props.RetirementHome(groups.Landmarks, CFrame.lookAt(home, Vector3.zero), rng)
+	Props.SchoolBus(groups.Landmarks, CFrame.new(70, 0, -d - 18) * CFrame.Angles(0, math.pi / 2, 0))
+
+	-- trees scattered behind the houses (never inside a building), bushes on the arena's outer lawn
+	local planted = 0
+	for _ = 1, 200 do
 		local angle = rng:NextNumber(0, math.pi * 2)
-		local radius = rng:NextNumber(d + 50, d + 70)
-		tree(scenery, Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius))
+		local radius = rng:NextNumber(d + 50, d + 68)
+		local position = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local free = true
+		for _, spot in taken do
+			if (spot.Position - position).Magnitude < spot.Radius then
+				free = false
+				break
+			end
+		end
+		if free then
+			planted += 1
+			tree(if planted % 2 == 0 then groups.TreesA else groups.TreesB, position, rng:NextNumber() < 0.4)
+			if planted == 36 then
+				break
+			end
+		end
 	end
 	for _ = 1, 14 do
 		local x = rng:NextNumber(-d + 10, d - 10)
@@ -392,22 +267,31 @@ local function buildScenery(map: Folder)
 		if rng:NextNumber() > 0.5 then
 			x, z = z, x
 		end
-		bush(scenery, Vector3.new(x, 0, z))
+		bush(groups.Bushes, Vector3.new(x, 0, z))
 	end
 end
 
+-- Bright, hard-shadowed daylight with punchy colors (Config.Comic.Lighting).
 local function setupLighting()
-	Lighting.ClockTime = 14
-	Lighting.Brightness = 2.5
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 160)
-	Lighting.Ambient = Color3.fromRGB(90, 90, 100)
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local atmosphere = Instance.new("Atmosphere")
-		atmosphere.Density = 0.25
-		atmosphere.Haze = 0.5
-		atmosphere.Color = Color3.fromRGB(200, 220, 255)
-		atmosphere.Parent = Lighting
-	end
+	local look = Config.Comic.Lighting
+	Lighting.ClockTime = look.ClockTime
+	Lighting.Brightness = look.Brightness
+	Lighting.OutdoorAmbient = look.OutdoorAmbient
+	Lighting.Ambient = look.Ambient
+	Lighting.ShadowSoftness = look.ShadowSoftness
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
+	atmosphere.Density = look.AtmosphereDensity
+	atmosphere.Haze = look.AtmosphereHaze
+	atmosphere.Glare = 0
+	atmosphere.Color = Color3.fromRGB(200, 225, 255)
+	atmosphere.Parent = Lighting
+	local grade = Lighting:FindFirstChild("ComicGrade") or Instance.new("ColorCorrectionEffect")
+	grade.Name = "ComicGrade"
+	grade.Saturation = look.Saturation
+	grade.Contrast = look.Contrast
+	grade.Parent = Lighting
 end
 
 function MapBuilder.Build(): Folder
@@ -422,11 +306,17 @@ function MapBuilder.Build(): Folder
 	local map = Instance.new("Folder")
 	map.Name = "Map"
 
-	buildGroundAndRoads(map)
-	buildPark(map)
-	buildBoundary(map)
+	-- outline groups: neighbors in different groups get an ink line between them
+	local groups = {}
+	for _, name in { "Roads", "Park", "StreetProps", "Cars", "Bushes", "TreesA", "TreesB", "Houses", "Yards", "Landmarks", "Fence" } do
+		groups[name] = K.OutlineGroup(map, name)
+	end
+
+	buildGroundAndRoads(map, groups.Roads)
+	buildPark(groups)
+	buildBoundary(map, groups.Fence)
 	buildSpawns(map)
-	buildScenery(map)
+	buildScenery(groups)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "PlayerSpawn"

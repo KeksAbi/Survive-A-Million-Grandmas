@@ -22,7 +22,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local EnemyService = {}
 
 EnemyService.EnemyKilled = Signal.new() -- (enemy, killer: Player?)
-EnemyService.Folder = nil :: Folder?
+EnemyService.Folder = nil :: Model?
 
 type Enemy = {
 	Id: number,
@@ -471,7 +471,8 @@ local function step(dt: number)
 end
 
 function EnemyService.Init()
-	local folder = Instance.new("Folder")
+	-- A Model (not a Folder) so the client can outline all grandmas with one Highlight (OutlineController)
+	local folder = Instance.new("Model")
 	folder.Name = "Enemies"
 	folder.Parent = workspace
 	EnemyService.Folder = folder

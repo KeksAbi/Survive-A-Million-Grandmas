@@ -168,5 +168,30 @@ return {
 		GroundSize = 420,
 		WallDistance = 140, -- invisible wall + picket fence ring around the arena
 		SpawnDistance = 128, -- enemies spawn this far from the center
+		FenceSections = 24, -- picket fence sections (between capped posts) per side of the arena
+	},
+
+	-- Comic-book look of the map (World/ComicKit, client OutlineController).
+	Comic = {
+		InkColor = Color3.fromRGB(24, 22, 30),
+		InkWidth = 0.3, -- studs: black lines drawn as parts (window frames, corners)
+		-- Silhouette outlines are Highlights (outline only, hidden behind walls). Roblox draws at most 31 at
+		-- once: the map uses ~11 groups, all grandmas share 1, each character gets 1 (8 players max).
+		Outlines = true,
+		OutlineTag = "ComicOutline", -- CollectionService tag of the map's outline-group Models
+		OutlineEnemies = true,
+		OutlineCharacters = true,
+		FirstPersonDistance = 1.5, -- camera this close to the own head = first person: own outline off
+		Lighting = {
+			ClockTime = 14,
+			Brightness = 3,
+			Ambient = Color3.fromRGB(112, 106, 124),
+			OutdoorAmbient = Color3.fromRGB(168, 162, 178),
+			ShadowSoftness = 0, -- hard comic shadows
+			Saturation = 0.25, -- ColorCorrection "ComicGrade"
+			Contrast = 0.15,
+			AtmosphereDensity = 0.2,
+			AtmosphereHaze = 0.3,
+		},
 	},
 }
