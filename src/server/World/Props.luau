@@ -3,6 +3,7 @@
 -- ComicKit parts. Every builder takes a parent and a CFrame/position on the ground; a CFrame's LookVector is
 -- the prop's front. Builders only make geometry: MapBuilder places them and registers enemy obstacles.
 
+local Architecture = require(script.Parent.Architecture)
 local ComicKit = require(script.Parent.ComicKit)
 
 local K = ComicKit
@@ -16,7 +17,7 @@ end
 
 -- Turns a CFrame on a box's +X (side = 1) or -X (side = -1) wall so its LookVector points out of that wall.
 local function sideFacing(side: number): CFrame
-	return CFrame.Angles(0, -side * math.pi / 2, 0)
+	return if side == 1 then Architecture.Face.Right else Architecture.Face.Left
 end
 
 --------------------------------------------------------------------------------------------------- nature
@@ -355,157 +356,70 @@ function Props.SchoolBus(parent: Instance, cframe: CFrame): Model
 	return model
 end
 
---------------------------------------------------------------------------------------------------- buildings
+--------------------------------------------------------------------------------------------- yard decorations
 
--- Gable roof on a W x D box whose walls end at wallH; ridge along the local X of `base` (ground center).
--- Solid attic in the wall color with diamond vents on both gable ends, two tilted slabs with overhang,
--- shingle lines, fascia boards, gutters and a ridge cap.
-local function gableRoof(parent: Instance, base: CFrame, W: number, D: number, wallH: number, rise: number, roofColor: Color3, wallColor: Color3)
-	local over, thick = 1.4, 0.7
-	local half = D / 2
-	local slope = math.sqrt(half * half + rise * rise)
-	local angle = math.atan2(rise, half)
-	local length = slope + over
-	local width = W + over * 2
-
-	K.Prism(parent, W, D, rise, base * CFrame.new(0, wallH, 0), wallColor)
-	for _, side in { -1, 1 } do
-		local normal = Vector3.new(0, math.cos(angle), side * math.sin(angle))
-		local eave = Vector3.new(0, wallH, side * half)
-		local up = (Vector3.new(0, wallH + rise, 0) - eave).Unit
-		local center = eave - up * over + up * (length / 2) + normal * (thick / 2)
-		local slab = base * CFrame.fromMatrix(center, Vector3.xAxis, normal)
-		local eaveZ = side * length / 2 -- the slab's local Z of its lower edge
-		K.Block(parent, Vector3.new(width, thick, length), slab, roofColor)
-		for i = 1, 3 do
-			K.Block(parent, Vector3.new(width - 0.3, 0.1, 0.3), slab * CFrame.new(0, thick / 2 + 0.05, eaveZ - side * i * length / 4), K.Dark(roofColor), true)
-		end
-		K.Block(parent, Vector3.new(width + 0.1, thick + 0.3, 0.35), slab * CFrame.new(0, -0.1, eaveZ - side * 0.1), C.Trim, true)
-		K.Block(parent, Vector3.new(width, 0.45, 0.55), slab * CFrame.new(0, -thick / 2 - 0.25, eaveZ - side * 0.3), C.Metal, true)
-
-		local vent = base * CFrame.new(side * W / 2, wallH + rise * 0.38, 0) * sideFacing(side) * CFrame.Angles(0, 0, math.pi / 4)
-		K.Panel(parent, 1.6, 1.6, vent, C.Trim, nil, 0.15)
-		K.Block(parent, Vector3.new(1.0, 1.0, 0.08), vent * CFrame.new(0, 0, -0.29), K.Dark(wallColor), true)
+-- Pink plastic lawn flamingo on wire legs (faces LookVector).
+function Props.Flamingo(parent: Instance, cframe: CFrame): Model
+	local model = K.Model("Flamingo")
+	local pink = Color3.fromRGB(255, 120, 170)
+	for _, x in { -0.15, 0.15 } do
+		K.Block(model, Vector3.new(0.12, 2.2, 0.12), cframe * CFrame.new(x, 1.1, 0), C.Ink, true)
 	end
-	K.Block(parent, Vector3.new(width + 0.2, 0.6, 1.1), base * CFrame.new(0, wallH + rise + thick / math.cos(angle) - 0.1, 0), K.Dark(roofColor))
-end
-
--- Brick chimney with mortar lines, an ink band and a metal cap. Stands from wallH to `top`.
-local function chimney(parent: Instance, base: CFrame, wallH: number, top: number)
-	K.Block(parent, Vector3.new(2.2, top - wallH + 1, 2.2), base * CFrame.new(0, (wallH - 1 + top) / 2, 0), C.Brick)
-	for _, y in { top - 1.2, top - 2.4 } do
-		K.Block(parent, Vector3.new(2.3, 0.18, 2.3), base * CFrame.new(0, y, 0), K.Dark(C.Brick), true)
-	end
-	K.Ink(parent, Vector3.new(2.35, 0.2, 2.35), base * CFrame.new(0, top - 0.1, 0))
-	K.Block(parent, Vector3.new(2.9, 0.5, 2.9), base * CFrame.new(0, top + 0.2, 0), C.MetalDark)
-end
-
--- House styles: size, wall height, roof rise and where the door and front windows go (x on the front wall).
-local HOUSE_STYLES = {
-	Cottage = { W = 20, D = 18, WallH = 11, Rise = 7, FrontGable = true, DoorX = 0, Windows = { -6.3, 6.3 }, WindowWidth = 3.6 },
-	Ranch = { W = 26, D = 16, WallH = 10, Rise = 5, Garage = true, DoorX = -1.5, Windows = { -8.5, 6.5 }, WindowWidth = 4.2 },
-	TwoStory = { W = 22, D = 18, WallH = 19, Rise = 6, DoorX = 0, Windows = { -6.5, 6.5 }, Upper = { -6.5, 0, 6.5 }, WindowWidth = 3.6 },
-}
-Props.HouseStyles = { "Cottage", "Ranch", "TwoStory" }
-
--- Suburban house facing LookVector: foundation, inked corner boards, gable roof, chimney, porch with posts,
--- door, shuttered windows, side windows; Ranch adds a garage + driveway. Yard things (picket fence,
--- stepping stones, mailbox, bushes) go to `yard` so they get their own outlines. Returns the house and,
--- for a Ranch, where a car parks on the driveway.
-function Props.House(parent: Instance, yard: Instance, cframe: CFrame, styleName: string, rng: Random): (Model, CFrame?)
-	local s = HOUSE_STYLES[styleName]
-	local W, D, H = s.W, s.D, s.WallH
-	local wall = pick(rng, C.Walls)
-	local roof = pick(rng, C.Roofs)
-	local model = K.Model("House")
-	local front = -D / 2
-	local function at(x: number, y: number, z: number): CFrame
-		return cframe * CFrame.new(x, y, z)
-	end
-
-	K.Block(model, Vector3.new(W + 0.8, 1.2, D + 0.8), at(0, 0.6, 0), C.Stone)
-	K.Block(model, Vector3.new(W, H, D), at(0, H / 2, 0), wall)
-	for _, sx in { -1, 1 } do
-		for _, sz in { -1, 1 } do
-			K.Block(model, Vector3.new(0.8, H, 0.8), at(sx * W / 2, H / 2, sz * D / 2), C.Trim, true)
-		end
-	end
-	K.InkCorners(model, at(0, H / 2, 0), Vector3.new(W + 0.8, H, D + 0.8))
-	if s.Upper then
-		K.Block(model, Vector3.new(W + 0.5, 0.6, D + 0.5), at(0, 9.6, 0), C.Trim, true)
-	end
-
-	if s.FrontGable then
-		gableRoof(model, cframe * CFrame.Angles(0, math.pi / 2, 0), D, W, H, s.Rise, roof, wall)
-	else
-		gableRoof(model, cframe, W, D, H, s.Rise, roof, wall)
-	end
-	chimney(model, at(W / 4, 0, D / 5), H, H + s.Rise + 2.2)
-
-	-- door + porch (deck, steps, posts, sloped roof)
-	local doorX = s.DoorX
-	K.Door(model, at(doorX, 1.2, front), 3.4, 6.6, pick(rng, C.Doors))
-	K.Block(model, Vector3.new(9, 1.2, 5.2), at(doorX, 0.6, front - 2.6), C.WoodLight)
-	for i = -1, 1 do
-		K.Block(model, Vector3.new(0.12, 0.05, 5.2), at(doorX + i * 3, 1.22, front - 2.6), K.Dark(C.WoodLight), true)
-	end
-	K.Block(model, Vector3.new(4, 0.6, 1.4), at(doorX, 0.3, front - 5.9), C.Stone)
-	for _, side in { -1, 1 } do
-		K.Block(model, Vector3.new(0.6, 7, 0.6), at(doorX + side * 4.1, 4.7, front - 4.8), C.Trim)
-	end
-	local porchRoof = at(doorX, 8.9, front - 2.7) * CFrame.Angles(math.rad(-12), 0, 0)
-	K.Block(model, Vector3.new(10.2, 0.45, 6.2), porchRoof, roof)
-	K.Block(model, Vector3.new(10.3, 0.6, 0.3), porchRoof * CFrame.new(0, -0.1, -3.05), C.Trim, true)
-
-	-- windows: front (shutters in the roof color), upper floor (no room for shutters), one per free side wall
-	for _, x in s.Windows do
-		K.Window(model, at(x, 5.4, front), s.WindowWidth, 4, roof)
-	end
-	for _, x in s.Upper or {} do
-		K.Window(model, at(x, 14.2, front), 3.6, 4)
-	end
-	for _, side in { -1, 1 } do
-		if not (s.Garage and side == 1) then
-			K.Window(model, at(side * W / 2, 5.4, 0) * sideFacing(side), 3.6, 4)
-		end
-	end
-
-	local carSpot: CFrame? = nil
-	if s.Garage then
-		local gx, gz, gW, gD, gH = W / 2 + 5.5, 1, 11, D - 2, 8.5
-		K.Block(model, Vector3.new(gW + 0.6, 1, gD + 0.6), at(gx, 0.5, gz), C.Stone)
-		K.Block(model, Vector3.new(gW, gH, gD), at(gx, gH / 2, gz), wall)
-		K.InkCorners(model, at(gx, gH / 2, gz), Vector3.new(gW, gH, gD))
-		gableRoof(model, cframe * CFrame.new(gx, 0, gz) * CFrame.Angles(0, math.pi / 2, 0), gD, gW, gH, 3.5, roof, wall)
-		local door = at(gx, 0, gz - gD / 2)
-		K.Panel(model, 8, 6.4, door * CFrame.new(0, 3.3, 0), C.Trim, nil, 0.2)
-		for i = 1, 3 do
-			K.Ink(model, Vector3.new(7.6, 0.12, 0.06), door * CFrame.new(0, 0.1 + i * 1.6, -0.33))
-		end
-		for _, x in { -2.7, -0.9, 0.9, 2.7 } do
-			K.Block(model, Vector3.new(1.4, 0.7, 0.06), door * CFrame.new(x, 5.5, -0.33), C.Glass, true)
-		end
-		K.Block(yard, Vector3.new(9, 0.2, 14), door * CFrame.new(0, 0.1, -7), C.Sidewalk, true)
-		carSpot = door * CFrame.new(0, 0, -6.5) * CFrame.Angles(0, math.pi, 0)
-	end
-
-	-- yard: picket fence with a gap at the path, stepping stones, mailbox, two garden bushes
-	local fenceZ = front - 6.6
-	local white = C.Trim
-	Props.PicketFence(yard, at(-W / 2 - 1, 0, fenceZ).Position, at(doorX - 1.6, 0, fenceZ).Position, 2, 2.6, white)
-	Props.PicketFence(yard, at(doorX + 1.6, 0, fenceZ).Position, at(W / 2 + 1, 0, fenceZ).Position, 2, 2.6, white)
-	for i = 0, 2 do
-		K.Block(yard, Vector3.new(2.2, 0.15, 1.1), at(doorX + rng:NextNumber(-0.3, 0.3), 0.08, front - 7.4 - i * 1.7), C.Stone, true)
-	end
-	local mailX = if s.Garage then -W / 2 + 1.5 else W / 2 - 1.5
-	Props.Mailbox(yard, at(mailX, 0, front - 7.6), pick(rng, { Color3.fromRGB(220, 50, 45), C.Roofs[1], C.MetalDark }))
-	for _, side in { -1, 1 } do
-		Props.Bush(yard, at(side * (W / 2 - 2.5), 0, front - 2.2).Position, rng, 0.75)
-	end
-
+	local body = cframe * CFrame.new(0, 2.6, 0.1) * CFrame.Angles(math.rad(-12), 0, 0)
+	K.Block(model, Vector3.new(0.9, 0.8, 1.6), body, pink, true)
+	K.Block(model, Vector3.new(0.7, 0.7, 1.3), body * CFrame.Angles(0, 0, math.pi / 4), pink, true)
+	K.Wedge(model, Vector3.new(0.5, 0.5, 0.7), body * CFrame.new(0, 0.3, 1.0) * CFrame.Angles(0, math.pi, 0), K.Dark(pink), true)
+	local neck, head = (cframe * CFrame.new(0, 3.9, -0.4)).Position, (cframe * CFrame.new(0, 4.6, -0.75)).Position
+	local shoulder = (cframe * CFrame.new(0, 2.9, -0.6)).Position
+	K.Block(model, Vector3.new(0.25, 0.25, (neck - shoulder).Magnitude + 0.2), CFrame.lookAt((shoulder + neck) / 2, neck), pink, true)
+	K.Block(model, Vector3.new(0.25, 0.25, (head - neck).Magnitude + 0.2), CFrame.lookAt((neck + head) / 2, head), pink, true)
+	K.Block(model, Vector3.new(0.4, 0.4, 0.6), cframe * CFrame.new(0, 4.7, -0.95), pink, true)
+	K.Block(model, Vector3.new(0.18, 0.18, 0.5), cframe * CFrame.new(0, 4.55, -1.35) * CFrame.Angles(math.rad(-25), 0, 0), C.Ink, true)
+	K.Block(model, Vector3.new(0.42, 0.1, 0.1), cframe * CFrame.new(0, 4.8, -1.05), C.Ink, true)
 	model.Parent = parent
-	return model, carSpot
+	return model
 end
+
+-- Garden gnome: blue coat, ink belt, white beard, pointy red hat.
+function Props.Gnome(parent: Instance, cframe: CFrame): Model
+	local model = K.Model("Gnome")
+	local skin = Color3.fromRGB(255, 200, 160)
+	K.Block(model, Vector3.new(1.0, 1.1, 0.9), cframe * CFrame.new(0, 0.55, 0), Color3.fromRGB(60, 110, 220), true)
+	K.Ink(model, Vector3.new(1.04, 0.15, 0.94), cframe * CFrame.new(0, 0.7, 0))
+	K.Block(model, Vector3.new(0.7, 0.5, 0.15), cframe * CFrame.new(0, 1.35, -0.4), skin, true)
+	K.Block(model, Vector3.new(0.8, 0.6, 0.3), cframe * CFrame.new(0, 1.0, -0.42), C.Trim, true)
+	K.Block(model, Vector3.new(0.25, 0.25, 0.25), cframe * CFrame.new(0, 1.3, -0.55), Color3.fromRGB(240, 140, 120), true)
+	K.Block(model, Vector3.new(0.85, 0.5, 0.85), cframe * CFrame.new(0, 1.35, 0.05), skin, true)
+	K.Spire(model, 1.0, 1.4, cframe * CFrame.new(0, 1.6, 0), Color3.fromRGB(230, 40, 40), true)
+	model.Parent = parent
+	return model
+end
+
+-- String of triangle flags from `from` to `to` (both world points), hanging below the string.
+function Props.Bunting(parent: Instance, from: Vector3, to: Vector3, spacing: number)
+	local length = (to - from).Magnitude
+	local frame = CFrame.lookAt(from, to)
+	K.Ink(parent, Vector3.new(0.08, 0.08, length), frame * CFrame.new(0, 0, -length / 2))
+	local i = 0
+	for along = spacing / 2, length - 0.3, spacing do
+		i += 1
+		K.Prism(parent, 0.06, 0.9, 0.9, frame * CFrame.new(0, 0, -along) * CFrame.Angles(math.pi, 0, 0), C.Flowers[i % #C.Flowers + 1], true)
+	end
+end
+
+-- Weather vane: pole, arrow with a tail fin, and a little gold rooster on top.
+function Props.WeatherVane(parent: Instance, base: CFrame)
+	local gold = Color3.fromRGB(255, 205, 70)
+	K.Block(parent, Vector3.new(0.15, 2.6, 0.15), base * CFrame.new(0, 1.3, 0), C.Ink, true)
+	K.Block(parent, Vector3.new(0.12, 0.12, 2.2), base * CFrame.new(0, 1.9, 0), C.Ink, true)
+	K.Block(parent, Vector3.new(0.06, 0.6, 0.6), base * CFrame.new(0, 1.9, 1.05) * CFrame.Angles(math.pi / 4, 0, 0), C.Ink, true)
+	K.Block(parent, Vector3.new(0.12, 0.4, 0.4), base * CFrame.new(0, 1.9, -1.15) * CFrame.Angles(math.pi / 4, 0, 0), C.Ink, true)
+	K.Block(parent, Vector3.new(0.12, 0.6, 1.0), base * CFrame.new(0, 2.8, 0), gold, true)
+	K.Block(parent, Vector3.new(0.12, 0.45, 0.4), base * CFrame.new(0, 3.25, -0.4), gold, true)
+	K.Wedge(parent, Vector3.new(0.1, 0.7, 0.5), base * CFrame.new(0, 3.15, 0.55), gold, true)
+end
+
+--------------------------------------------------------------------------------------------------- buildings
 
 -- Rocking chair for the retirement home porch (sitter faces LookVector).
 local function rockingChair(parent: Instance, cframe: CFrame)
@@ -531,19 +445,20 @@ function Props.RetirementHome(parent: Instance, cframe: CFrame, rng: Random): Mo
 	local roof = C.Roofs[4]
 	local shutter = Color3.fromRGB(46, 120, 80)
 	local front = -D / 2
+	local L = { Walls = model, Roofs = model, Details = model }
 	local function at(x: number, y: number, z: number): CFrame
 		return cframe * CFrame.new(x, y, z)
 	end
 
 	K.Block(model, Vector3.new(W + 1, 1.4, D + 1), at(0, 0.7, 0), C.Stone)
 	K.Block(model, Vector3.new(W, H, D), at(0, H / 2, 0), cream)
-	for _, x in { -W / 2, -20, 20, W / 2 } do
+	for _, x in { -W / 2, -25, -15, 15, 25, W / 2 } do
 		K.Block(model, Vector3.new(1.4, H, 0.6), at(x, H / 2, front - 0.1), C.Trim, true)
 	end
 	K.InkCorners(model, at(0, H / 2, 0), Vector3.new(W + 0.4, H, D + 0.4))
 	K.Block(model, Vector3.new(W + 0.6, 0.8, D + 0.6), at(0, 11, 0), C.Trim, true)
 	K.Block(model, Vector3.new(W + 1.2, 1, D + 1.2), at(0, H - 0.5, 0), C.Trim, true)
-	gableRoof(model, cframe, W, D, H, 9, roof, cream)
+	Architecture.GableRoof(L, cframe, W, D, H, 9, roof, cream, { Downspouts = true })
 
 	-- clock tower on the ridge
 	local tower = at(0, H + 8.5, 0)
@@ -564,12 +479,12 @@ function Props.RetirementHome(parent: Instance, cframe: CFrame, rng: Random): Mo
 	-- windows: two shuttered rows on the front, two per side wall
 	for _, y in { 6.5, 16 } do
 		for _, x in { -30, -20, -10, 10, 20, 30 } do
-			K.Window(model, at(x, y, front), 3.6, 4.2, shutter)
+			Architecture.Window(L, at(x, y, front), 3.6, 4.2, { Shutters = shutter, ShutterWidth = 1.3, Crown = true })
 		end
 	end
 	for _, side in { -1, 1 } do
 		for _, z in { -6, 6 } do
-			K.Window(model, at(side * W / 2, 6.5, z) * sideFacing(side), 3.6, 4.2)
+			Architecture.Window(L, at(side * W / 2, 6.5, z) * sideFacing(side), 3.6, 4.2, { Crown = true })
 		end
 	end
 
@@ -590,9 +505,8 @@ function Props.RetirementHome(parent: Instance, cframe: CFrame, rng: Random): Mo
 		rockingChair(model, at(x, 1.2, front - 4) * CFrame.Angles(0, if x < 0 then 0.3 else -0.3, 0))
 	end
 	for _, x in { -1.8, 1.8 } do
-		K.Door(model, at(x, 1.4, front), 3.4, 8, C.Doors[4])
+		Architecture.Door(L, at(x, 1.4, front), 3.4, 8, C.Doors[4], { Glass = true })
 	end
-	K.Window(model, at(0, 10.8, front), 7, 1.4)
 	for _, x in { -36, -24, 24, 36 } do
 		Props.Bush(model, at(x, 0, front - 2.2).Position, rng)
 	end

@@ -45,16 +45,20 @@ Server services (`src/server/Services`):
   -> new match. Spawns waves gradually, scales by player count, bonuses, respawns, `MatchResult`, `MatchEnded` signal.
 
 World (`src/server/World`): `MapBuilder` (layout of the whole map at server start, spawn points, obstacles,
-lighting), `Props` (comic-style prop models: trees, pines, bushes, flower beds, houses in 3 styles, cars, school
-bus, retirement home, fountain, lamps, benches, hydrants, fences), `ComicKit` (palette, flat parts, wedges/prisms/
-spires/gems, ink panels, windows, doors, outline groups), `EnemyFactory` (enemy models from welded parts).
+lighting), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
+`Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
+gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
+chimneys), `Props` (trees, pines, bushes, flower beds, cars, school bus, retirement home, fountain, lamps, benches,
+hydrants, fences, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
+spires/gems, ink panels, outline groups), `EnemyFactory` (enemy models from welded parts).
 
 Comic art style (2026-10-19): hard comic look. Black silhouette outlines = one outline-only Highlight per
-outline group (the map has 11 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
+outline group (the map has 13 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
 `workspace.Enemies` is a Model, one per character) added by the client's `OutlineController`; Roblox draws at most
 31 Highlights, so never one per prop. Inner ink lines = black plates behind windows/doors/signs and thin black
 bars. Flat SmoothPlastic, palette in `ComicKit.Colors`, hard shadows + color grade from `Config.Comic.Lighting`.
-Small details are deco parts (no collision, no raycast, no shadow).
+Small details are deco parts (no collision, no raycast, no shadow). Houses are split into HouseWalls / HouseRoofs /
+HouseDetails groups so roofs, windows, doors and porches get a thick ink line against the walls.
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
@@ -155,10 +159,13 @@ Report honestly what was tested and what was not.
 - [~] Comic map overhaul (written 2026-10-19 from a cloud session, NOT yet seen in Studio): ComicKit + Props +
   new MapBuilder + OutlineController. Same layout, spawns, obstacles and API as before. Checked: rojo build,
   luau-lsp, and a mock run of MapBuilder (no errors, ~6.9k parts, 60 obstacles).
+- [~] Six detailed house designs (written 2026-10-19, NOT yet seen in Studio): Houses + Architecture. Houses now
+  stand square to the streets (d + 26 from the center). Checked: rojo build, luau-lsp, mock run (~12.8k parts,
+  93% deco) and preview renders of every design from a simple offline renderer (no Roblox lighting).
 
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~6.9k parts and
-  ~20 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off.
+- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~12.8k parts and
+  ~22 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off.
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:

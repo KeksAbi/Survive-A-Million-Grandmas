@@ -150,36 +150,6 @@ function ComicKit.Panel(parent: Instance, width: number, height: number, cframe:
 	return ComicKit.Block(parent, Vector3.new(width, height, thick), cframe * CFrame.new(0, 0, -0.1 - thick / 2), color, true)
 end
 
--- Window: inked white frame, glass with a comic glint, cross bars, sill, optional shutters.
--- `cframe` = center on the wall, LookVector = outward.
-function ComicKit.Window(parent: Instance, cframe: CFrame, width: number, height: number, shutterColor: Color3?)
-	local C = ComicKit.Colors
-	ComicKit.Panel(parent, width + 0.5, height + 0.5, cframe, C.Trim, nil, 0.15)
-	local glass = cframe * CFrame.new(0, 0, -0.25)
-	ComicKit.Block(parent, Vector3.new(width, height, 0.1), glass * CFrame.new(0, 0, -0.05), C.Glass, true)
-	ComicKit.Block(parent, Vector3.new(0.3, height * 0.55, 0.06), glass * CFrame.new(-width * 0.22, height * 0.1, -0.13) * CFrame.Angles(0, 0, math.rad(-30)), C.GlassShine, true)
-	ComicKit.Block(parent, Vector3.new(0.22, height, 0.16), glass * CFrame.new(0, 0, -0.12), C.Trim, true)
-	ComicKit.Block(parent, Vector3.new(width, 0.22, 0.16), glass * CFrame.new(0, 0, -0.12), C.Trim, true)
-	ComicKit.Block(parent, Vector3.new(width + 1.2, 0.35, 0.7), cframe * CFrame.new(0, -height / 2 - 0.6, -0.35), C.Trim, true)
-	if shutterColor then
-		for _, side in { -1, 1 } do
-			local x = side * (width / 2 + 0.75 + width * 0.19)
-			ComicKit.Panel(parent, width * 0.38, height + 0.3, cframe * CFrame.new(x, 0, 0), shutterColor, 0.15, 0.15)
-		end
-	end
-end
-
--- Door with frame, two inset panels and a brass knob. `cframe` = bottom center on the wall, LookVector = outward.
-function ComicKit.Door(parent: Instance, cframe: CFrame, width: number, height: number, color: Color3)
-	ComicKit.Panel(parent, width + 0.6, height + 0.3, cframe * CFrame.new(0, (height + 0.3) / 2, 0), ComicKit.Colors.Trim, nil, 0.15)
-	local door = cframe * CFrame.new(0, height / 2, -0.25)
-	ComicKit.Block(parent, Vector3.new(width, height, 0.15), door * CFrame.new(0, 0, -0.075), color, true)
-	for _, y in { 0.2, -0.2 } do
-		ComicKit.Block(parent, Vector3.new(width * 0.6, height * 0.28, 0.08), door * CFrame.new(0, y * height, -0.19), ComicKit.Dark(color), true)
-	end
-	ComicKit.Block(parent, Vector3.new(0.35, 0.35, 0.3), door * CFrame.new(width * 0.33, -0.02 * height, -0.3), Color3.fromRGB(255, 205, 70), true)
-end
-
 -- Thin ink bars on the 4 vertical edges of a box (inner corners a silhouette outline cannot show).
 function ComicKit.InkCorners(parent: Instance, cframe: CFrame, size: Vector3)
 	local w = Config.Comic.InkWidth

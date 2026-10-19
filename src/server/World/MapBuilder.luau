@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local ComicKit = require(script.Parent.ComicKit)
+local Houses = require(script.Parent.Houses)
 local Props = require(script.Parent.Props)
 
 local K = ComicKit
@@ -222,18 +223,17 @@ end
 
 local function buildScenery(groups: { [string]: Model })
 	local d = Config.Map.WallDistance
-	-- houses along three sides, facing the arena; the retirement home owns the north side
+	-- houses along three sides, square to the streets and facing the arena; the retirement home owns the north
 	local taken = { { Position = Vector3.new(0, 0, -d - 35), Radius = 50 }, { Position = Vector3.new(70, 0, -d - 18), Radius = 16 } }
+	local row = d + 26
 	local index = 0
-	for t = -110, 110, 44 do
-		for _, position in { Vector3.new(t, 0, d + 22), Vector3.new(-d - 22, 0, t), Vector3.new(d + 22, 0, t) } do
+	for k, t in { -110, -66, -22, 22, 66, 110 } do
+		for s, spot in { { Vector3.new(t, 0, row), -Vector3.zAxis }, { Vector3.new(-row, 0, t), Vector3.xAxis }, { Vector3.new(row, 0, t), -Vector3.xAxis } } do
 			index += 1
-			table.insert(taken, { Position = position, Radius = 28 })
-			local style = Props.HouseStyles[index % #Props.HouseStyles + 1]
-			local _, carSpot = Props.House(groups.Houses, groups.Yards, CFrame.lookAt(position, Vector3.zero), style, rng)
-			if carSpot then
-				Props.Car(groups.Cars, carSpot, C.Cars[rng:NextInteger(1, #C.Cars)], if index % 2 == 0 then "Pickup" else nil)
-			end
+			local position, facing = spot[1], spot[2]
+			local design = Houses.Designs[(k + s * 2) % #Houses.Designs + 1] -- every street shows all six designs
+			Houses.Build(groups, CFrame.lookAt(position, position + facing), design, rng, design .. index)
+			table.insert(taken, { Position = position, Radius = 30 })
 		end
 	end
 	local home = Vector3.new(0, 0, -d - 35)
@@ -308,7 +308,7 @@ function MapBuilder.Build(): Folder
 
 	-- outline groups: neighbors in different groups get an ink line between them
 	local groups = {}
-	for _, name in { "Roads", "Park", "StreetProps", "Cars", "Bushes", "TreesA", "TreesB", "Houses", "Yards", "Landmarks", "Fence" } do
+	for _, name in { "Roads", "Park", "StreetProps", "Cars", "Bushes", "TreesA", "TreesB", "HouseWalls", "HouseRoofs", "HouseDetails", "Yards", "Landmarks", "Fence" } do
 		groups[name] = K.OutlineGroup(map, name)
 	end
 
