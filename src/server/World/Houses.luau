@@ -10,7 +10,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local Architecture = require(script.Parent.Architecture)
 local ComicKit = require(script.Parent.ComicKit)
+local Fences = require(script.Parent.Fences)
 local Props = require(script.Parent.Props)
+local Streets = require(script.Parent.Streets)
 local Vegetation = require(script.Parent.Vegetation)
 local Vehicles = require(script.Parent.Vehicles)
 
@@ -31,9 +33,10 @@ type YardInfo = {
 	LotLeft: number,
 	LotRight: number,
 	Garage: { X: number, Width: number, FrontZ: number, Cars: { string } }?, -- a car parks nose-in on the driveway
+	Fence: string?, -- yard fence style: "Picket" (default) or "Iron"
 	-- Planting, in local x/z: { "Bush", kind, x, z, scale? } | { "Tree", kind, x, z, scale? } |
 	-- { "Flower", kind, x, z } | { "Bed", x1, x2, z, { flower kinds } } | { "Row", bush kind, x1, x2, z, spacing, scale } |
-	-- { "Vehicle", kind, x, z, y, turn }
+	-- { "Vehicle", kind, x, z, y, turn } | { "Border", x1, x2, z } (low garden fence)
 	Garden: { { any } }?,
 	Decor: ((parent: Instance, at: (x: number, z: number) -> CFrame) -> ())?,
 }
@@ -142,6 +145,8 @@ function DESIGNS.Cottage(L, cframe, rng)
 		Garden = {
 			{ "Bed", -9.4, -3.6, -9.0, { "Rose", "Daisy" } },
 			{ "Bed", 3.6, 9.4, -9.0, { "Tulip", "Wildflower" } },
+			{ "Border", -9.6, -3.4, -9.9 },
+			{ "Border", 3.4, 9.6, -9.9 },
 			{ "Bush", "Pointed", -10.8, -10.6 },
 			{ "Bush", "Pointed", 10.8, -10.6 },
 			{ "Tree", "Ornamental", -8.4, -13.2 },
@@ -192,6 +197,7 @@ function DESIGNS.Colonial(L, cframe, rng)
 		FenceZ = -18,
 		LotLeft = -16.5,
 		LotRight = 16.5,
+		Fence = "Iron",
 		Garden = {
 			{ "Row", "Round", -13.6, -5.4, -11.6, 2.7, 0.6 },
 			{ "Row", "Round", 5.4, 13.6, -11.6, 2.7, 0.6 },
@@ -247,6 +253,8 @@ function DESIGNS.GrandmaPink(L, cframe, rng)
 		Garden = {
 			{ "Bed", -8, -2.4, -17.3, { "Tulip", "Daisy", "Rose" } },
 			{ "Bed", 2.4, 8, -17.3, { "Daisy", "Tulip", "Rose" } },
+			{ "Border", -8.2, -2.2, -18.05 },
+			{ "Border", 2.2, 8.2, -18.05 },
 			{ "Flower", "Sunflower", -12.6, -17.4 },
 			{ "Flower", "Sunflower", -11.4, -17.8 },
 			{ "Bush", "Flowering", -13.9, -7.6, 0.6 },
@@ -310,6 +318,7 @@ function DESIGNS.Victorian(L, cframe, rng)
 		LotRight = 12.5,
 		Garden = {
 			{ "Bed", 2.2, 9.4, -15.6, { "Rose" } },
+			{ "Border", 2.0, 9.6, -16.4 },
 			{ "Bush", "Corner", 11.8, -15.4, 0.7 },
 			{ "Bush", "Wild", -12.4, -5.6, 0.7 },
 		},
@@ -367,7 +376,7 @@ Houses.Designs = { "Family", "Cottage", "Colonial", "GrandmaPink", "Victorian", 
 
 -- Front yard: picket fence across the lot (open at the path and the driveway), stepping stones, driveway with
 -- joints and a parked car, mailbox at the fence, the design's garden and decorations, grass at the gate.
-local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Vegetation.Layers, cframe: CFrame, info: YardInfo, rng: Random)
+local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Vegetation.Layers, cframe: CFrame, info: YardInfo, rng: Random, curbZ: number)
 	local function spot(x: number, z: number): CFrame
 		return cframe * CFrame.new(x, 0, z)
 	end
@@ -385,9 +394,13 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 		if x2 - x1 < 1 then
 			return
 		end
-		Props.PicketFence(parent, spot(x1, fz).Position, spot(x2, fz).Position, 2.4, 2.6, C.Trim)
-		Props.FencePost(parent, spot(x1, fz).Position, 3.2, C.Trim)
-		Props.FencePost(parent, spot(x2, fz).Position, 3.2, C.Trim)
+		if info.Fence == "Iron" then
+			Fences.Iron(parent, spot(x1, fz).Position, spot(x2, fz).Position, 2.4)
+		else
+			Fences.Picket(parent, spot(x1, fz).Position, spot(x2, fz).Position, 2.4, 2.6)
+			Fences.Post(parent, spot(x1, fz).Position, 3.2, C.Trim)
+			Fences.Post(parent, spot(x2, fz).Position, 3.2, C.Trim)
+		end
 	end
 	local x = info.LotLeft
 	for _, gap in gaps do
@@ -396,18 +409,19 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 	end
 	run(x, info.LotRight)
 
+	-- stepping stones from the porch steps to the sidewalk; a brown privacy fence along the lot's right side
 	local z = info.StepsZ - 0.9
-	while z > fz + 0.5 do
-		local stone = spot(info.DoorX + rng:NextNumber(-0.25, 0.25), z) * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, rng:NextNumber(-0.15, 0.15), 0)
-		K.Block(parent, Vector3.new(2.2, 0.15, 1.1), stone, C.Stone, true)
-		z -= 1.7
+	while z > curbZ + 0.6 do
+		Streets.Stone(parent, spot(info.DoorX + rng:NextNumber(-0.25, 0.25), z).Position, rng)
+		z -= 1.6
 	end
+	Fences.Board(parent, spot(info.LotRight + 0.5, -6).Position, spot(info.LotRight + 0.5, 20).Position, 4.5)
 
 	if garage then
-		local far = fz - 1.5
+		local far = curbZ
 		local length = garage.FrontZ - far
 		K.Block(parent, Vector3.new(garage.Width, 0.2, length), spot(garage.X, (garage.FrontZ + far) / 2) * CFrame.new(0, 0.1, 0), C.Sidewalk, true)
-		for jz = garage.FrontZ - 4, far + 1, -4 do
+		for jz = garage.FrontZ - 4, far + 0.6, -4 do
 			K.Block(parent, Vector3.new(garage.Width, 0.04, 0.15), spot(garage.X, jz) * CFrame.new(0, 0.22, 0), C.SidewalkJoint, true)
 		end
 		local kind = garage.Cars[rng:NextInteger(1, #garage.Cars)]
@@ -426,6 +440,8 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 			Vegetation.Flower(garden, plant[2], spot(plant[3], plant[4]).Position, rng, nil, cframe.LookVector)
 		elseif what == "Bed" then
 			Vegetation.Bed(garden, spot(plant[2], plant[4]).Position, spot(plant[3], plant[4]).Position, plant[5], rng)
+		elseif what == "Border" then
+			Fences.Border(parent, spot(plant[2], plant[4]).Position, spot(plant[3], plant[4]).Position)
 		elseif what == "Vehicle" then
 			Vehicles.Build(vehicles, plant[2], spot(plant[3], plant[4]) * CFrame.new(0, plant[5], 0) * CFrame.Angles(0, plant[6], 0))
 		elseif what == "Row" then
@@ -434,7 +450,7 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 			end
 		end
 	end
-	if Config.Comic.GrassTufts then
+	if Config.Comic.SmallDetails then
 		for _, gateX in { info.DoorX - 2.3, info.DoorX + 2.3 } do
 			Vegetation.Grass(garden, spot(gateX, fz + 0.7).Position, rng, 0.8)
 		end
@@ -445,8 +461,9 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 end
 
 -- Builds one house of `design` at `cframe` (ground center of the main box, LookVector = its front). Walls,
--- roofs and details go to their own outline groups (one sub-Model per house in each).
-function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: string, rng: Random, name: string)
+-- roofs and details go to their own outline groups (one sub-Model per house in each). `curbZ` = local z of the
+-- street sidewalk's yard-side edge (driveway and path run to it). Returns the yard description (garage spot).
+function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: string, rng: Random, name: string, curbZ: number): YardInfo
 	local function sub(group: Instance): Model
 		local model = K.Model(name)
 		model.Parent = group
@@ -454,7 +471,8 @@ function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: strin
 	end
 	local layers = { Walls = sub(groups.HouseWalls), Roofs = sub(groups.HouseRoofs), Details = sub(groups.HouseDetails) }
 	local info = DESIGNS[design](layers, cframe, rng)
-	buildYard(sub(groups.Yards), { Body = groups.Cars, Details = groups.CarDetails }, Vegetation.LayersFrom(groups), cframe, info, rng)
+	buildYard(sub(groups.Yards), { Body = groups.Cars, Details = groups.CarDetails }, Vegetation.LayersFrom(groups), cframe, info, rng, curbZ)
+	return info
 end
 
 return Houses

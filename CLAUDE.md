@@ -45,19 +45,23 @@ Server services (`src/server/Services`):
   -> new match. Spawns waves gradually, scales by player count, bonuses, respawns, `MatchResult`, `MatchEnded` signal.
 
 World (`src/server/World`): `MapBuilder` (layout of the whole map at server start, spawn points, obstacles,
-lighting), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
+lighting; square park inside the ring road "Bingo Blvd", four spur streets across the arena lawn to the
+perimeter street "Slipper Ave" just outside the arena fence, which the houses and the retirement home face),
+`Streets` (asphalt with ink borders, lane lines, cracks, patches, manholes, storm drains; raised sidewalks with
+curbs, slab joints, ramps, driveway aprons; chamfered corners; crosswalks; stepping stones), `Fences` (Picket,
+Board backyard, Iron, Park, Border, ROAD CLOSED Barricade), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
 `Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
 chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
 Flowering, Pointed, Trimmed, Wild, Leafy, Corner; flowers: Daisy, Rose, Tulip, Sunflower, Wildflower; grass tufts,
 garden beds, round flower beds), `Vehicles` (Sedan, Hatchback, Wagon, Minivan, SUV, Pickup from one spec-driven
 car builder; grandma mobility Scooter; retirement-home Shuttle bus; Body + Details layers), `Props` (retirement
-home, fountain, lamps, benches,
-hydrants, fences, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
+home, fountain, lamps, street lights, stop signs with street names, benches, hydrants, mailboxes, trash cans,
+utility boxes, planters, rocks, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
 spires/gems, ink panels, outline groups), `EnemyFactory` (enemy models from welded parts).
 
 Comic art style (2026-10-19): hard comic look. Black silhouette outlines = one outline-only Highlight per
-outline group (the map has 15 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
+outline group (the map has 16 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
 `workspace.Enemies` is a Model, one per character) added by the client's `OutlineController`; Roblox draws at most
 31 Highlights, so never one per prop. Inner ink lines = black plates behind windows/doors/signs and thin black
 bars. Flat SmoothPlastic, palette in `ComicKit.Colors`, hard shadows + color grade from `Config.Comic.Lighting`.
@@ -66,7 +70,8 @@ HouseDetails groups so roofs, windows, doors and porches get a thick ink line ag
 leaf masses alternate FoliageA / FoliageB (ink lines between the masses of one canopy), Wood and Flowers are own
 groups; the Grass model (blades, stems, soil) is NOT outlined on purpose (would turn into black scribbles).
 Vehicles: body panels in `Cars`, glass/wheels/lights/bumpers/grille/mirrors/plates in `CarDetails` (ink around
-windows and wheels), ink parts for door/hood/trunk seams.
+windows and wheels), ink parts for door/hood/trunk seams. Streets: asphalt in `Roads`, sidewalks/curbs in
+`Sidewalks` (black line where curb meets road).
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
@@ -178,11 +183,15 @@ Report honestly what was tested and what was not.
   road's outer curb (Sedan, Minivan by the park, Hatchback, Wagon; obstacles as before), cars nose-in on the
   Family/Bungalow driveways, Scooter on the pink house porch + 2 on the retirement home porch, Shuttle (replaces
   the school bus) by the retirement home. Mock run ~17.7k parts.
+- [~] Comic streets (written 2026-10-19, NOT yet seen in Studio): Streets + Fences modules, new street layout
+  (spurs + perimeter street; houses moved to `Config.Map.WallDistance + 42`, retirement home to -(d + 55),
+  ground 470), stop signs, street lights, utility boxes, planters, park fences (short, backed by obstacles),
+  barricades where the spurs cross the arena fence. Mock run ~21k parts, 117 obstacles; preview renders.
 
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~17.7k parts (95% deco)
-  and ~24 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
-  `Config.Comic.GrassTufts = false` drops the grass tufts.
+- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~21k parts (95% deco)
+  and ~25 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
+  `Config.Comic.SmallDetails = false` drops grass tufts, cracks, patches, manholes and drains.
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:

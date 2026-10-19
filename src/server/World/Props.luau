@@ -118,28 +118,137 @@ function Props.Mailbox(parent: Instance, cframe: CFrame, color: Color3): Model
 	return model
 end
 
--- Picket fence from `from` to `to` on the ground: two rails and pointed pickets (pure decoration).
-function Props.PicketFence(parent: Instance, from: Vector3, to: Vector3, spacing: number, height: number, color: Color3)
-	local length = (to - from).Magnitude
-	local frame = CFrame.lookAt(from, to)
-	for _, y in { height * 0.3, height * 0.72 } do
-		K.Block(parent, Vector3.new(0.25, 0.4, length), frame * CFrame.new(0, y, -length / 2), color, true)
+-- Text on a part's front (and optionally back) face.
+local function label(part: BasePart, text: string, color: Color3, bothSides: boolean?)
+	local faces = { Enum.NormalId.Front }
+	if bothSides then
+		table.insert(faces, Enum.NormalId.Back)
 	end
-	local along = spacing / 2
-	while along < length do
-		local at = frame * CFrame.new(-0.25, 0, -along)
-		K.Block(parent, Vector3.new(0.3, height, 0.75), at * CFrame.new(0, height / 2, 0), color, true)
-		K.Block(parent, Vector3.new(0.3, 0.55, 0.55), at * CFrame.new(0, height, 0) * CFrame.Angles(math.pi / 4, 0, 0), color, true)
-		along += spacing
+	for _, face in faces do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 30
+		gui.Parent = part
+		local text3 = Instance.new("TextLabel")
+		text3.Size = UDim2.fromScale(1, 1)
+		text3.BackgroundTransparency = 1
+		text3.Text = text
+		text3.TextScaled = true
+		text3.Font = Enum.Font.GothamBlack
+		text3.TextColor3 = color
+		text3.Parent = gui
 	end
 end
 
--- Square fence post with a cap and a little spire on top.
-function Props.FencePost(parent: Instance, position: Vector3, height: number, color: Color3)
-	local base = CFrame.new(position)
-	K.Block(parent, Vector3.new(0.9, height, 0.9), base * CFrame.new(0, height / 2, 0), color, true)
-	K.Block(parent, Vector3.new(1.25, 0.3, 1.25), base * CFrame.new(0, height + 0.15, 0), color, true)
-	K.Spire(parent, 0.8, 0.6, base * CFrame.new(0, height + 0.3, 0), color, true)
+-- Regular octagon standing on a surface (`cf` LookVector = its front): a wide and a tall bar plus four corner
+-- wedges. Returns the wide bar (for text).
+local function octagon(parent: Instance, cf: CFrame, size: number, thick: number, color: Color3): BasePart
+	local a = size / (1 + math.sqrt(2)) -- side length
+	local first = K.Block(parent, Vector3.new(size, a, thick), cf, color, true)
+	K.Block(parent, Vector3.new(a, size, thick), cf, color, true)
+	local leg = (size - a) / 2
+	for _, sx in { -1, 1 } do
+		for _, sy in { -1, 1 } do
+			local dirA, dirB = Vector3.new(sx, 0, 0), Vector3.new(0, sy, 0)
+			local center = Vector3.new(sx * a / 2, sy * a / 2, 0) + (dirA + dirB) * (leg / 2)
+			K.Wedge(parent, Vector3.new(thick, leg, leg), cf * CFrame.fromMatrix(center, dirB:Cross(dirA), dirA, -dirB), color, true)
+		end
+	end
+	return first
+end
+
+-- Stop sign with two crossed green street-name blades on top (names[1] along the sign's X, names[2] across).
+-- Faces LookVector.
+function Props.StopSign(parent: Instance, cframe: CFrame, names: { string }): Model
+	local model = K.Model("StopSign")
+	K.Block(model, Vector3.new(0.25, 9.4, 0.25), cframe * CFrame.new(0, 4.7, 0), C.Metal)
+	local face = cframe * CFrame.new(0, 6.6, -0.2)
+	octagon(model, face, 2.6, 0.08, C.Ink)
+	octagon(model, face * CFrame.new(0, 0, -0.06), 2.4, 0.06, C.Trim)
+	local red = octagon(model, face * CFrame.new(0, 0, -0.11), 2.15, 0.06, Color3.fromRGB(220, 30, 30))
+	label(red, "STOP", C.Trim)
+	local green = Color3.fromRGB(30, 130, 80)
+	for i, name in names do
+		local blade = cframe * CFrame.new(0, 8.6 + i * 0.75, 0) * CFrame.Angles(0, (i - 1) * math.pi / 2, 0)
+		K.Block(model, Vector3.new(3.5, 0.72, 0.1), blade, C.Ink, true)
+		local plate = K.Block(model, Vector3.new(3.3, 0.55, 0.14), blade, green, true)
+		label(plate, name, C.Trim, true)
+	end
+	K.Block(model, Vector3.new(0.35, 0.3, 0.35), cframe * CFrame.new(0, 10.3, 0), C.Metal, true)
+	model.Parent = parent
+	return model
+end
+
+-- Tall cobra-head street light: plinth, two-step tapered pole, curved arm, head with a glowing lens.
+-- The arm reaches toward LookVector.
+function Props.StreetLight(parent: Instance, cframe: CFrame): Model
+	local model = K.Model("StreetLight")
+	local gray = C.Metal
+	K.Block(model, Vector3.new(1.1, 0.8, 1.1), cframe * CFrame.new(0, 0.4, 0), C.Stone)
+	K.Block(model, Vector3.new(0.55, 8, 0.55), cframe * CFrame.new(0, 4.6, 0), gray)
+	K.Block(model, Vector3.new(0.42, 6.4, 0.42), cframe * CFrame.new(0, 11.8, 0), gray, true)
+	local bend = (cframe * CFrame.new(0, 14.6, 0)).Position
+	local tip = (cframe * CFrame.new(0, 15.4, -4.2)).Position
+	local knee = (cframe * CFrame.new(0, 15.3, -1.2)).Position
+	K.Block(model, Vector3.new(0.3, 0.3, (knee - bend).Magnitude + 0.2), CFrame.lookAt((bend + knee) / 2, knee), gray, true)
+	K.Block(model, Vector3.new(0.3, 0.3, (tip - knee).Magnitude + 0.2), CFrame.lookAt((knee + tip) / 2, tip), gray, true)
+	local head = CFrame.lookAt(tip, tip + (tip - knee)) * CFrame.new(0, 0, -0.9)
+	K.Block(model, Vector3.new(1.0, 0.5, 2.2), head, gray, true)
+	K.Wedge(model, Vector3.new(1.0, 0.3, 0.6), head * CFrame.new(0, 0.4, -0.8), gray, true)
+	local lens = K.Block(model, Vector3.new(0.8, 0.12, 1.7), head * CFrame.new(0, -0.3, 0), Color3.fromRGB(255, 236, 170), true)
+	lens.Material = Enum.Material.Neon
+	K.Ink(model, Vector3.new(1.04, 0.08, 2.24), head * CFrame.new(0, -0.22, 0))
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Range = 24
+	light.Angle = 100
+	light.Brightness = 1.4
+	light.Color = Color3.fromRGB(255, 225, 170)
+	light.Parent = lens
+	model.Parent = parent
+	return model
+end
+
+-- Green utility box on a concrete pad: lid, door seam, vent slats, handle, warning sticker. Faces LookVector.
+function Props.UtilityBox(parent: Instance, cframe: CFrame): Model
+	local model = K.Model("UtilityBox")
+	local green = Color3.fromRGB(70, 130, 90)
+	K.Block(model, Vector3.new(3.2, 0.3, 2.0), cframe * CFrame.new(0, 0.15, 0), C.Stone)
+	K.Block(model, Vector3.new(2.4, 3.0, 1.3), cframe * CFrame.new(0, 1.8, 0), green)
+	K.Block(model, Vector3.new(2.6, 0.25, 1.5), cframe * CFrame.new(0, 3.4, 0), K.Dark(green), true)
+	local front = cframe * CFrame.new(0, 0, -0.65)
+	K.Ink(model, Vector3.new(0.06, 2.6, 0.06), front * CFrame.new(0, 1.8, -0.02))
+	for i = 0, 2 do
+		K.Ink(model, Vector3.new(0.8, 0.08, 0.06), front * CFrame.new(-0.65, 2.6 - i * 0.25, -0.02))
+	end
+	K.Block(model, Vector3.new(0.12, 0.5, 0.12), front * CFrame.new(0.25, 1.7, -0.08), C.Metal, true)
+	K.Panel(model, 0.5, 0.4, front * CFrame.new(0.7, 2.6, 0), Color3.fromRGB(255, 205, 40), 0.06, 0.04)
+	model.Parent = parent
+	return model
+end
+
+-- Wooden planter box (`length` long along local X): plank walls with ink seams, darker corner posts, soil.
+-- Returns the CFrame of the soil top center (for planting).
+function Props.Planter(parent: Instance, cframe: CFrame, length: number): CFrame
+	local w, h = 1.4, 1.1
+	K.Block(parent, Vector3.new(length, h, w), cframe * CFrame.new(0, h / 2, 0), C.Wood, true)
+	K.Block(parent, Vector3.new(length - 0.3, 0.08, w - 0.3), cframe * CFrame.new(0, h + 0.01, 0), Color3.fromRGB(116, 76, 46), true)
+	for _, s in { -1, 1 } do
+		K.Block(parent, Vector3.new(0.25, h + 0.1, w + 0.1), cframe * CFrame.new(s * (length / 2 - 0.1), (h + 0.1) / 2, 0), K.Dark(C.Wood), true)
+		K.Ink(parent, Vector3.new(length - 0.4, 0.07, w + 0.04), cframe * CFrame.new(0, h * (0.5 + s * 0.17), 0))
+	end
+	return cframe * CFrame.new(0, h + 0.05, 0)
+end
+
+-- A cluster of decorative faceted rocks, half sunk into the ground.
+function Props.Rocks(parent: Instance, position: Vector3, rng: Random, count: number)
+	for i = 1, count do
+		local angle = i * 2.4
+		local size = rng:NextNumber(0.7, 1.5) * (if i == 1 then 1.3 else 1)
+		local at = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (if i == 1 then 0 else rng:NextNumber(0.8, 1.4)) + Vector3.new(0, size * 0.2, 0)
+		K.Gem(parent, size, at, if i % 2 == 0 then C.Stone else K.Dark(C.Stone), rng, true)
+	end
 end
 
 --------------------------------------------------------------------------------------------- yard decorations
