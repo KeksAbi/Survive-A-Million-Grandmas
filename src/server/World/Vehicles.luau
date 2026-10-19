@@ -105,7 +105,9 @@ end
 --     the paint shows through as pillars and the glass gets its own ink line (Details layer).
 --   * Wheels: one mesh each (tire, rim, hub, spokes) set into the arches over a dark wheel well.
 --   * Lights, grille, bumpers, plates, mirrors, handles and seams stay small plain parts.
-local MESH_KINDS = { Sedan = true }
+-- Car kinds cut as CSG meshes. Empty: the CSG sedan came out with a broken glass cabin, so every car uses
+-- the part builder.
+local MESH_KINDS: { [string]: boolean } = {}
 
 local function meshCar(kind: string): Meshes.Pieces
 	local spec = SPECS[kind]

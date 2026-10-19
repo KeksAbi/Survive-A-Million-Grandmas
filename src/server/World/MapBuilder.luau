@@ -797,6 +797,16 @@ function MapBuilder.Build(): Folder
 	spawn.Parent = map
 
 	setupLighting()
+	-- performance pass: nothing on the map uses Touched, and small pieces do not need to cast shadows
+	for _, part in map:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanTouch = false
+			local size = part.Size
+			if math.max(size.X, size.Y, size.Z) < 3 then
+				part.CastShadow = false
+			end
+		end
+	end
 	map.Parent = workspace
 	return map
 end

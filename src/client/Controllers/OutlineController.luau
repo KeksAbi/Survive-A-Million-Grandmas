@@ -59,10 +59,29 @@ function OutlineController.Init()
 		end
 		outline(group)
 	end
-	for _, group in CollectionService:GetTagged(comic.OutlineTag) do
-		outlineGroup(group)
+	if comic.OutlineMap then
+		for _, group in CollectionService:GetTagged(comic.OutlineTag) do
+			outlineGroup(group)
+		end
+		CollectionService:GetInstanceAddedSignal(comic.OutlineTag):Connect(outlineGroup)
 	end
-	CollectionService:GetInstanceAddedSignal(comic.OutlineTag):Connect(outlineGroup)
+
+	-- phones/tablets: drop tiny decorations locally (fewer parts to draw; gameplay never uses them)
+	if touchOnly and comic.TouchTinyPartSize > 0 then
+		task.spawn(function()
+			local map = workspace:WaitForChild("Map", 30)
+			if not map then
+				return
+			end
+			task.wait(2) -- let the map finish streaming in
+			local limit = comic.TouchTinyPartSize
+			for _, part in map:GetDescendants() do
+				if part:IsA("BasePart") and not part.CanCollide and part.Size.X < limit and part.Size.Y < limit and part.Size.Z < limit then
+					part:Destroy()
+				end
+			end
+		end)
+	end
 
 	if comic.OutlineEnemies then
 		task.spawn(function()

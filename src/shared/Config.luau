@@ -179,6 +179,11 @@ return {
 		-- once: the map uses 16 groups, all grandmas share 1, each character gets 1 (8 players max). Each
 		-- Highlight redraws its whole group, so the outline cost grows with the part count (~26k map parts).
 		Outlines = true,
+		-- Outlines on the MAP too. Off: each map Highlight redraws its whole group (~26k parts) every frame,
+		-- which caused frame drops when turning the camera. Grandmas and players keep their outlines (cheap).
+		OutlineMap = false,
+		-- Phones/tablets: tiny decorations (every side under this many studs) are removed on the device itself.
+		TouchTinyPartSize = 1,
 		OutlineTag = "ComicOutline", -- CollectionService tag of the map's outline-group Models
 		OutlineEnemies = true,
 		OutlineCharacters = true,
