@@ -182,8 +182,9 @@ return {
 		OutlineEnemies = true,
 		OutlineCharacters = true,
 		FirstPersonDistance = 1.5, -- camera this close to the own head = first person: own outline off
-		-- Small decorations: grass tufts, road and sidewalk cracks, asphalt patches, manholes, drains
-		-- (off = fewer parts on phones).
+		-- Small decorations: grass tufts, road and sidewalk cracks, asphalt patches, manholes, drains and the
+		-- small yard clutter (hose reels, watering cans, flowerpots, slippers, tool racks, knitting baskets,
+		-- garbage bags; PropLibrary.Small). Off = about 2k fewer parts on phones.
 		SmallDetails = true,
 		Lighting = {
 			ClockTime = 14,

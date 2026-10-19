@@ -115,6 +115,70 @@ function ComicKit.Disc(parent: Instance, diameter: number, thickness: number, po
 	return ComicKit.Cylinder(parent, Vector3.new(thickness, diameter, diameter), cframe, color, deco)
 end
 
+-- Ball (knobs, yarn balls, pom-poms, bulbs). Always round: Roblox sizes a ball by its diameter.
+function ComicKit.Ball(parent: Instance, diameter: number, position: Vector3, color: Color3, deco: boolean?): BasePart
+	local part = Instance.new("Part")
+	part.Shape = Enum.PartType.Ball
+	return finish(part, parent, Vector3.one * diameter, CFrame.new(position), color, deco)
+end
+
+-- CFrame halfway between two points with -Z (LookVector) pointing from a to b; safe for straight up/down.
+local function between(a: Vector3, b: Vector3): CFrame
+	local dir = b - a
+	local middle = (a + b) / 2
+	if math.abs(dir.Unit.Y) > 0.999 then
+		return CFrame.new(middle) * CFrame.Angles(if dir.Y > 0 then math.pi / 2 else -math.pi / 2, 0, 0)
+	end
+	return CFrame.lookAt(middle, b)
+end
+
+-- Square bar from point a to point b (handles, frames, legs, wire). `thickness` also pads the ends so
+-- chained rods meet without gaps.
+function ComicKit.Rod(parent: Instance, a: Vector3, b: Vector3, thickness: number, color: Color3, deco: boolean?): BasePart
+	return ComicKit.Block(parent, Vector3.new(thickness, thickness, (b - a).Magnitude + thickness * 0.5), between(a, b), color, deco)
+end
+
+-- Round tube from point a to point b (pipes, hoses, poles, needles).
+function ComicKit.Tube(parent: Instance, a: Vector3, b: Vector3, diameter: number, color: Color3, deco: boolean?): BasePart
+	local size = Vector3.new((b - a).Magnitude, diameter, diameter)
+	return ComicKit.Cylinder(parent, size, between(a, b) * CFrame.Angles(0, math.pi / 2, 0), color, deco)
+end
+
+-- Text on a part's front face (and the back with `bothSides`), bold comic lettering.
+function ComicKit.Text(part: BasePart, text: string, color: Color3, bothSides: boolean?, face: Enum.NormalId?)
+	local faces = { face or Enum.NormalId.Front }
+	if bothSides then
+		table.insert(faces, Enum.NormalId.Back)
+	end
+	for _, side in faces do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = side
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 30
+		gui.Parent = part
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextScaled = true
+		label.Font = Enum.Font.GothamBlack
+		label.TextColor3 = color
+		label.Parent = gui
+	end
+end
+
+-- Regular eight-sided column (pots, cones, kettles, posts), `width` across the flats, `cframe` at its center:
+-- four bars (width x side length) turned in 45 degree steps cover exactly the octagon. Only the first bar
+-- can collide.
+function ComicKit.Octagon(parent: Instance, width: number, height: number, cframe: CFrame, color: Color3, deco: boolean?): BasePart
+	local side = width / (1 + math.sqrt(2))
+	local first = ComicKit.Block(parent, Vector3.new(width, height, side), cframe, color, deco)
+	for i = 1, 3 do
+		ComicKit.Block(parent, Vector3.new(width, height, side), cframe * CFrame.Angles(0, i * math.pi / 4, 0), color, true)
+	end
+	return first
+end
+
 function ComicKit.Ink(parent: Instance, size: Vector3, cframe: CFrame): BasePart
 	return ComicKit.Block(parent, size, cframe, INK, true)
 end
@@ -137,6 +201,19 @@ end
 function ComicKit.Spire(parent: Instance, width: number, height: number, cframe: CFrame, color: Color3, deco: boolean?)
 	ComicKit.Prism(parent, width, width, height, cframe, color, deco)
 	ComicKit.Prism(parent, width, width, height, cframe * CFrame.Angles(0, math.pi / 2, 0), color, deco)
+end
+
+-- Faceted cone (traffic cones, pointy hats): `sides` wedges fanned around the axis, each tall at the axis and
+-- sloping out to the rim, so the silhouette is a pointed triangle from every side (a Spire looks flat-topped
+-- from straight in front). `cframe` = center of the base.
+function ComicKit.Cone(parent: Instance, diameter: number, height: number, cframe: CFrame, color: Color3, deco: boolean?, sides: number?)
+	local n = sides or 8
+	local r = diameter / 2
+	local width = 2 * r * math.tan(math.pi / n)
+	for i = 0, n - 1 do
+		local turn = cframe * CFrame.Angles(0, i * 2 * math.pi / n, 0)
+		ComicKit.Wedge(parent, Vector3.new(width, height, r), turn * CFrame.new(0, height / 2, -r / 2), color, if i == 0 then deco else true)
+	end
 end
 
 -- Flat detail on a surface (glass, door, sign): a black plate `ink` studs bigger on every side behind a

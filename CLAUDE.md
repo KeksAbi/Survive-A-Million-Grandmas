@@ -51,16 +51,29 @@ perimeter street "Slipper Ave" just outside the arena fence, which the houses an
 curbs, slab joints, ramps, driveway aprons; chamfered corners; crosswalks; stepping stones), `Fences` (Picket,
 Board backyard, Iron, Park, Border, ROAD CLOSED Barricade), `ParkProps` (tiered Fountain with spray particles,
 Slide, CurvySlide, SwingSet, ClimbingFrame, Sandbox, Seesaw, SpringRider, PicnicTable, Pergola, Grill, BirdBath,
-Sundial, SoccerGoal, PicnicBlanket, RoseArch), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
+Sundial, SoccerGoal, PicnicBlanket, RoseArch), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards
+with yard props from their `Garden` lists: `{ "Prop", name, x, z, turn?, y? }`, `{ "Curb", name, x, turn? }`; plus the
+retirement home landmark),
 `Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
 chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
 Flowering, Pointed, Trimmed, Wild, Leafy, Corner; flowers: Daisy, Rose, Tulip, Sunflower, Wildflower; grass tufts,
 garden beds, round flower beds), `Vehicles` (Sedan, Hatchback, Wagon, Minivan, SUV, Pickup from one spec-driven
-car builder; grandma mobility Scooter; retirement-home Shuttle bus; Body + Details layers), `Props` (retirement
-home, fountain, lamps, street lights, stop signs with street names, benches, hydrants, mailboxes, trash cans,
-utility boxes, planters, rocks, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
-spires/gems, ink panels, outline groups), `EnemyFactory` (enemy models from welded parts).
+car builder; grandma mobility Scooter; retirement-home Shuttle bus; Body + Details layers), the prop library:
+`PropLibrary` (index of every prop builder by name and category, `Build(name, parent, cframe, rng?)`, `Small` set,
+`Showcase(parent)` = one of everything in labelled rows; in Studio Edit mode run in the command bar
+`require(game.ServerScriptService.Server.World.PropLibrary).Showcase(workspace)`), `YardProps` (wooden mailbox,
+hose reel, lawn mower, wheelbarrow, shovel/rake/pitchfork + tool rack, flowerpots, watering can, gnome, flamingo,
+Adirondack chair, patio table with umbrella, kettle grill, trash + recycling wheelie bins, welcome sign, hanging
+basket, doghouse, birdhouse, crate, bunting, weather vane), `StreetProps` (lamps, street lights, stop signs with
+street names, benches, park trash cans, hydrants, utility cabinets, planters, rocks, newspaper boxes, traffic
+cones, A-frame and jersey barriers, garbage bags, bike racks, bicycles; manholes + open manhole are in `Streets`),
+`GrandmaProps` (yarn balls, giant knitting needles with a scarf, knitting basket, slippers, rocking chair, cookie
+stall, BINGO sign, retirement-home billboard, grandma statue, shopping cart with groceries), `ComicKit` (palette,
+flat parts, wedges/prisms/spires/cones/gems, balls, rods/tubes, octagons, text, ink panels, outline groups),
+`EnemyFactory` (enemy models from welded parts).
+Props: ground CFrame in (LookVector = front), Model out; small pieces deco, only big bodies solid; anything solid
+inside the arena gets an obstacle circle in MapBuilder.
 
 Comic art style (2026-10-19): hard comic look. Black silhouette outlines = one outline-only Highlight per
 outline group (the map has 16 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
@@ -194,11 +207,21 @@ Report honestly what was tested and what was not.
   picnic (-X +Z), garden + seating (-X -Z), open lawn (+X -Z). Furniture groups (bench + lamp + bin, pergola +
   tables, garden bed + benches, slides) use overlapping or merged obstacle circles so no pockets trap
   grandmas; checked for narrow gaps with a script. Mock run ~21k parts, 159 obstacles.
+- [~] Comic prop library (written 2026-10-19, NOT yet seen in Studio): YardProps, StreetProps (was Props),
+  GrandmaProps, PropLibrary. Placed: yard props per house design (curb bins on trash day, doghouse + grill, hose
+  reel + mower, patio set, porch rocking chair + knitting + slippers, hanging baskets...), arena: road works on
+  Knitting Way, newspaper boxes at two ring corners, cookie stall + scooter on the east lawn, giant yarn balls /
+  needles on the lawn diagonals, grandma statue in the park garden, bike rack by the playground path; outside:
+  jersey barriers behind the ROAD CLOSED barricades, BINGO sign, bike rack and carts at the retirement home,
+  4 retirement-home billboards in the map corners (ring trees no longer land on the perimeter street corners).
+  Mock run ~25k parts (~23k with SmallDetails off), 170 obstacles; preview renders of every prop.
 
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~21k parts (95% deco)
+- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges/Cylinders/Balls, so
+  curves (hoses, rockers, wheels) are short straight segments or round parts. ~25k parts (95% deco)
   and ~25 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
-  `Config.Comic.SmallDetails = false` drops grass tufts, cracks, patches, manholes and drains.
+  `Config.Comic.SmallDetails = false` drops grass tufts, cracks, patches, manholes, drains and small yard clutter.
+  Sign lettering is SurfaceGui text (GothamBlack).
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:

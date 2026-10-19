@@ -67,13 +67,34 @@ function Streets.Patch(parent: Instance, cf: CFrame, rng: Random)
 	end
 end
 
--- Manhole cover: inked rim, metal lid, cross ribs.
+-- Manhole cover: inked frame ring, metal lid with a raised inner ring, four cross ribs, two pick holes and
+-- SEWER lettering.
 function Streets.Manhole(parent: Instance, position: Vector3)
 	K.Disc(parent, 2.9, LINE * 1.2, position, C.Ink, true)
 	K.Disc(parent, 2.5, LINE * 1.6, position, C.MetalDark, true)
-	for _, a in { 0, math.pi / 2 } do
-		K.Block(parent, Vector3.new(2.0, LINE * 2, 0.14), CFrame.new(position + Vector3.new(0, LINE * 1.6, 0)) * CFrame.Angles(0, a + 0.4, 0), C.Ink, true)
+	local top = CFrame.new(position + Vector3.new(0, LINE * 1.9, 0))
+	for i = 0, 3 do
+		K.Block(parent, Vector3.new(2.3, LINE * 1.6, 0.12), top * CFrame.Angles(0, i * math.pi / 4 + 0.4, 0), C.Ink, true)
 	end
+	for _, x in { -0.95, 0.95 } do
+		K.Block(parent, Vector3.new(0.12, LINE * 1.8, 0.3), top * CFrame.new(x, 0, 0), C.Ink, true)
+	end
+	K.Disc(parent, 1.6, LINE * 2.2, position, C.Ink, true)
+	local ring = K.Disc(parent, 1.4, LINE * 3, position, C.MetalDark, true)
+	K.Text(ring, "SEWER", C.Metal, false, Enum.NormalId.Right)
+end
+
+-- Open manhole for road works: metal frame ring around a black hole with two ladder rungs, and the lid lying
+-- tilted against the rim on one side.
+function Streets.OpenManhole(parent: Instance, position: Vector3, facing: Vector3)
+	K.Disc(parent, 3.1, LINE * 3, position, C.MetalDark, true)
+	K.Disc(parent, 2.4, LINE * 3.4, position, C.Ink, true)
+	local hole = CFrame.lookAt(position, position + facing)
+	for _, z in { -0.4, 0.4 } do
+		K.Block(parent, Vector3.new(1.2, 0.1, 0.1), hole * CFrame.new(0, LINE * 3.6, z), C.Metal, true)
+	end
+	K.Cylinder(parent, Vector3.new(0.16, 2.5, 2.5), hole * CFrame.new(0, 0.55, -2.3) * CFrame.Angles(0, 0, math.rad(70)), C.MetalDark, true)
+	K.Cylinder(parent, Vector3.new(0.18, 1.5, 1.5), hole * CFrame.new(0, 0.55, -2.3) * CFrame.Angles(0, 0, math.rad(70)), C.Ink, true)
 end
 
 -- Storm drain grate at the curb (`cf` on the road surface, local Z along the road).

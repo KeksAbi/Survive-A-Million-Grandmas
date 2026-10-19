@@ -455,14 +455,17 @@ function Vegetation.Bed(L: Layers, from: Vector3, to: Vector3, mix: { string }, 
 	end
 end
 
--- Round park flower bed: octagon of stones around soil, a pointed shrub in the middle, a ring of mixed flowers.
-function Vegetation.FlowerBed(L: Layers, position: Vector3, rng: Random)
+-- Round park flower bed: octagon of stones around soil, a pointed shrub in the middle (left out when
+-- `centerpiece` is set: a statue stands there instead), a ring of mixed flowers.
+function Vegetation.FlowerBed(L: Layers, position: Vector3, rng: Random, centerpiece: boolean?)
 	for i = 0, 7 do
 		local stone = CFrame.new(position) * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, 0.3, -3.2)
 		K.Block(L.Wood, Vector3.new(2.8, 0.6, 0.7), stone, C.Stone, true)
 	end
 	K.Disc(L.Grass, 6.2, 0.4, position, PALETTE.Soil, true)
-	BUSHES.Pointed(L, CFrame.new(position + Vector3.new(0, 0.4, 0)), rng, 0.8)
+	if not centerpiece then
+		BUSHES.Pointed(L, CFrame.new(position + Vector3.new(0, 0.4, 0)), rng, 0.8)
+	end
 	local mix = { "Tulip", "Daisy", "Rose", "Tulip", "Daisy", "Rose", "Tulip" }
 	for i, kind in mix do
 		local angle = i * math.pi * 2 / #mix

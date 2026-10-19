@@ -1,6 +1,7 @@
 --!nonstrict
 -- The six comic-style house designs of the neighborhood, assembled from Architecture components, plus each
--- house's front yard (picket fence, path, driveway + car, mailbox, garden, decorations).
+-- house's front yard (picket fence, path, driveway + car, mailbox, garden, yard props from PropLibrary,
+-- decorations), and the retirement home landmark.
 -- Every design is built around the ground center of its main box (`cframe`, front = LookVector, which faces
 -- the arena) and returns a yard description. Numbers below were laid out so that windows, shutters, porches
 -- and roofs do not overlap; keep them consistent when changing a design.
@@ -11,10 +12,12 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local Architecture = require(script.Parent.Architecture)
 local ComicKit = require(script.Parent.ComicKit)
 local Fences = require(script.Parent.Fences)
-local Props = require(script.Parent.Props)
+local GrandmaProps = require(script.Parent.GrandmaProps)
+local PropLibrary = require(script.Parent.PropLibrary)
 local Streets = require(script.Parent.Streets)
 local Vegetation = require(script.Parent.Vegetation)
 local Vehicles = require(script.Parent.Vehicles)
+local YardProps = require(script.Parent.YardProps)
 
 local A = Architecture
 local K = ComicKit
@@ -36,7 +39,9 @@ type YardInfo = {
 	Fence: string?, -- yard fence style: "Picket" (default) or "Iron"
 	-- Planting, in local x/z: { "Bush", kind, x, z, scale? } | { "Tree", kind, x, z, scale? } |
 	-- { "Flower", kind, x, z } | { "Bed", x1, x2, z, { flower kinds } } | { "Row", bush kind, x1, x2, z, spacing, scale } |
-	-- { "Vehicle", kind, x, z, y, turn } | { "Border", x1, x2, z } (low garden fence)
+	-- { "Vehicle", kind, x, z, y, turn } | { "Border", x1, x2, z } (low garden fence) |
+	-- { "Prop", PropLibrary name, x, z, turn?, y? } (y = porch floor 1.2, or a hook height) |
+	-- { "Curb", PropLibrary name, x, turn? } (on the street sidewalk at the curb: bins on trash day)
 	Garden: { { any } }?,
 	Decor: ((parent: Instance, at: (x: number, z: number) -> CFrame) -> ())?,
 }
@@ -107,6 +112,12 @@ function DESIGNS.Family(L, cframe, rng)
 			{ "Bed", 5.8, 11.2, -9.9, { "Tulip", "Daisy" } },
 			{ "Bush", "Corner", -13.8, -11.2, 0.7 },
 			{ "Bush", "Pointed", 11.4, -11.8 },
+			{ "Prop", "Doghouse", 9.6, -15.4 },
+			{ "Prop", "KettleGrill", 6.2, -13.0, 0.4 },
+			{ "Prop", "HangingBasket", -8.2, -14.4, 0, 7.2 },
+			{ "Prop", "HangingBasket", 2.2, -14.4, 0, 7.2 },
+			{ "Curb", "TrashBin", 9.6 },
+			{ "Curb", "RecyclingBin", 11.5 },
 		},
 	}
 end
@@ -150,10 +161,20 @@ function DESIGNS.Cottage(L, cframe, rng)
 			{ "Bush", "Pointed", -10.8, -10.6 },
 			{ "Bush", "Pointed", 10.8, -10.6 },
 			{ "Tree", "Ornamental", -8.4, -13.2 },
+			{ "Prop", "Wheelbarrow", 5.2, -12.4, math.pi - 0.5 },
+			{ "Prop", "WateringCan", 8.6, -10.6, -0.8 },
+			{ "Prop", "GardenTools", 10.4, -14.6, math.pi },
+			{ "Prop", "FlowerPot", -2.5, -11.0 },
+			{ "Prop", "FlowerPot", 2.5, -11.0 },
+			{ "Prop", "Birdhouse", -11.0, -14.6, 0.3 },
+			{ "Prop", "WelcomeSign", -5.6, -14.7 },
+			{ "Prop", "Slippers", 2.0, -9.6, 0.3, 1.2 },
+			{ "Curb", "TrashBin", 6.2 },
+			{ "Curb", "RecyclingBin", 8.1 },
 		},
 		Decor = function(parent, spot)
-			Props.Gnome(parent, spot(3.6, -13))
-			Props.Gnome(parent, spot(-3.4, -13.4) * CFrame.Angles(0, 0.5, 0))
+			YardProps.Gnome(parent, spot(3.6, -13))
+			YardProps.Gnome(parent, spot(-3.4, -13.4) * CFrame.Angles(0, 0.5, 0))
 		end,
 	}
 end
@@ -205,6 +226,13 @@ function DESIGNS.Colonial(L, cframe, rng)
 			{ "Bed", 5.4, 13.6, -13.4, { "Tulip" } },
 			{ "Bush", "Pointed", -3.2, -15.6, 0.8 },
 			{ "Bush", "Pointed", 3.2, -15.6, 0.8 },
+			{ "Prop", "UmbrellaTable", -10.5, -16.1 },
+			{ "Prop", "OutdoorChair", -13.2, -16.1, -math.pi / 2 },
+			{ "Prop", "OutdoorChair", -7.8, -16.1, math.pi / 2 },
+			{ "Prop", "LawnMower", 6.0, -16.3, -1.2 },
+			{ "Prop", "HoseReel", 13.6, -14.9, math.pi / 2 },
+			{ "Prop", "CeramicPot", -2.3, -11.4, 0, 1.2 },
+			{ "Prop", "CeramicPot", 2.3, -11.4, 0, 1.2 },
 		},
 	}
 end
@@ -231,10 +259,10 @@ function DESIGNS.GrandmaPink(L, cframe, rng)
 	end
 	K.Block(L.Roofs, Vector3.new(3.8, 0.4, 3.8), at(5, ridge + 2.6, 0), C.Trim, true)
 	K.Spire(L.Roofs, 4.2, 2.6, at(5, ridge + 2.8, 0), roof)
-	Props.WeatherVane(L.Details, at(5, ridge + 5.4, 0))
+	YardProps.WeatherVane(L.Details, at(5, ridge + 5.4, 0))
 
 	local edge = A.Porch(L, at(0, 0, front), { Width = 26, Depth = 7, Columns = { -12.4, -7, -2.6, 2.6, 7, 12.4 }, ColumnHeight = 6.2, Style = "Turned", Rail = true, RailColor = mint, Roof = "Shed", RoofColor = roof })
-	Props.Bunting(L.Details, (edge * CFrame.new(-12.6, 0, 0)).Position, (edge * CFrame.new(12.6, 0, 0)).Position, 1.5)
+	YardProps.Bunting(L.Details, (edge * CFrame.new(-12.6, 0, 0)).Position, (edge * CFrame.new(12.6, 0, 0)).Position, 1.5)
 	A.Door(L, at(0, 1.2, front), 3.2, 6.2, rgb(255, 205, 60), { Glass = true })
 
 	local win = { Shutters = mint, ShutterWidth = 1.2, Box = roof }
@@ -260,11 +288,17 @@ function DESIGNS.GrandmaPink(L, cframe, rng)
 			{ "Bush", "Flowering", -13.9, -7.6, 0.6 },
 			{ "Bush", "Flowering", 13.9, -7.6, 0.6 },
 			{ "Vehicle", "Scooter", -9.6, -12.4, 1.2, 0.5 },
+			{ "Prop", "RockingChair", 5.2, -11.8, -0.3, 1.2 },
+			{ "Prop", "KnittingBasket", 7.4, -11.0, 0, 1.2 },
+			{ "Prop", "Slippers", 2.3, -10.0, 0.4, 1.2 },
+			{ "Prop", "HangingBasket", -4.8, -15.4, 0, 6.8 },
+			{ "Prop", "HangingBasket", 4.8, -15.4, 0, 6.8 },
+			{ "Curb", "ShoppingCart", -6.0, 0.4 },
 		},
 		Decor = function(parent, spot)
-			Props.Flamingo(parent, spot(9.4, -17.3) * CFrame.Angles(0, 0.6, 0))
-			Props.Flamingo(parent, spot(11.6, -17.1) * CFrame.Angles(0, -0.5, 0))
-			Props.Gnome(parent, spot(-9, -17.4))
+			YardProps.Flamingo(parent, spot(9.4, -17.3) * CFrame.Angles(0, 0.6, 0))
+			YardProps.Flamingo(parent, spot(11.6, -17.1) * CFrame.Angles(0, -0.5, 0))
+			YardProps.Gnome(parent, spot(-9, -17.4))
 		end,
 	}
 end
@@ -321,6 +355,11 @@ function DESIGNS.Victorian(L, cframe, rng)
 			{ "Border", 2.0, 9.6, -16.4 },
 			{ "Bush", "Corner", 11.8, -15.4, 0.7 },
 			{ "Bush", "Wild", -12.4, -5.6, 0.7 },
+			{ "Prop", "HangingBasket", -9.0, -14.4, 0, 7.6 },
+			{ "Prop", "HangingBasket", -5.55, -14.4, 0, 7.6 },
+			{ "Prop", "FlowerPot", -3.7, -16.5 },
+			{ "Prop", "FlowerPot", 1.0, -16.5 },
+			{ "Prop", "Birdhouse", 11.3, -12.0, -0.4 },
 		},
 	}
 end
@@ -366,6 +405,15 @@ function DESIGNS.Bungalow(L, cframe, rng)
 			{ "Flower", "Sunflower", 13.5, -9.0 },
 			{ "Bush", "Leafy", 9.8, -17.4, 0.8 },
 			{ "Bush", "Leafy", -13.6, -17.4, 0.8 },
+			{ "Prop", "OutdoorChair", 3.4, -13.2, 0, 1.2 },
+			{ "Prop", "OutdoorChair", 6.6, -13.2, 0.2, 1.2 },
+			{ "Prop", "FlowerPot", -5.6, -14.4, 0, 1.2 },
+			{ "Prop", "FlowerPot", -2.4, -14.4, 0, 1.2 },
+			{ "Prop", "Crate", 24.6, -7.2 },
+			{ "Prop", "Crate", 24.6, -7.2, 0.4, 1.8 },
+			{ "Curb", "TrashBin", 9.6 },
+			{ "Curb", "RecyclingBin", 11.5 },
+			{ "Curb", "GarbageBags", 7.6 },
 		},
 	}
 end
@@ -428,8 +476,7 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 		Vehicles.Build(vehicles, kind, spot(garage.X, garage.FrontZ - Vehicles.HalfLength(kind) - 0.4) * CFrame.Angles(0, math.pi, 0))
 	end
 
-	local mailColors = { Color3.fromRGB(220, 50, 45), C.Roofs[1], C.MetalDark }
-	Props.Mailbox(parent, spot(info.DoorX + 2.6, fz - 1), mailColors[rng:NextInteger(1, #mailColors)])
+	PropLibrary.Build("Mailbox", parent, spot(info.DoorX + 2.6, fz - 1), rng)
 	for _, plant in (info.Garden or {}) :: { { any } } do
 		local what = plant[1]
 		if what == "Bush" then
@@ -444,6 +491,13 @@ local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Ve
 			Fences.Border(parent, spot(plant[2], plant[4]).Position, spot(plant[3], plant[4]).Position)
 		elseif what == "Vehicle" then
 			Vehicles.Build(vehicles, plant[2], spot(plant[3], plant[4]) * CFrame.new(0, plant[5], 0) * CFrame.Angles(0, plant[6], 0))
+		elseif what == "Prop" or what == "Curb" then
+			if Config.Comic.SmallDetails or not PropLibrary.Small[plant[2]] then
+				local at = if what == "Prop"
+					then spot(plant[3], plant[4]) * CFrame.new(0, plant[6] or 0, 0) * CFrame.Angles(0, plant[5] or 0, 0)
+					else spot(plant[3], curbZ - 2.9) * CFrame.new(0, Streets.WalkHeight, 0) * CFrame.Angles(0, plant[4] or 0, 0)
+				PropLibrary.Build(plant[2], parent, at, rng)
+			end
 		elseif what == "Row" then
 			for rowX = plant[3], plant[4] + 0.01, plant[6] do
 				Vegetation.Bush(garden, plant[2], spot(rowX, plant[5]).Position, rng, plant[7])
@@ -473,6 +527,102 @@ function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: strin
 	local info = DESIGNS[design](layers, cframe, rng)
 	buildYard(sub(groups.Yards), { Body = groups.Cars, Details = groups.CarDetails }, Vegetation.LayersFrom(groups), cframe, info, rng, curbZ)
 	return info
+end
+
+------------------------------------------------------------------------------------------------ landmark
+
+-- The retirement home: two floors of shuttered windows, pilasters, cornice, gable roof with a clock tower,
+-- columned porch with rocking chairs, double doors and the big inked sign. Faces LookVector.
+function Houses.RetirementHome(parent: Instance, cframe: CFrame): Model
+	local model = K.Model("RetirementHome")
+	local W, D, H = 80, 30, 22
+	local cream = Color3.fromRGB(244, 226, 190)
+	local roof = C.Roofs[4]
+	local shutter = Color3.fromRGB(46, 120, 80)
+	local front = -D / 2
+	local L = { Walls = model, Roofs = model, Details = model }
+	local function at(x: number, y: number, z: number): CFrame
+		return cframe * CFrame.new(x, y, z)
+	end
+
+	K.Block(model, Vector3.new(W + 1, 1.4, D + 1), at(0, 0.7, 0), C.Stone)
+	K.Block(model, Vector3.new(W, H, D), at(0, H / 2, 0), cream)
+	for _, x in { -W / 2, -25, -15, 15, 25, W / 2 } do
+		K.Block(model, Vector3.new(1.4, H, 0.6), at(x, H / 2, front - 0.1), C.Trim, true)
+	end
+	K.InkCorners(model, at(0, H / 2, 0), Vector3.new(W + 0.4, H, D + 0.4))
+	K.Block(model, Vector3.new(W + 0.6, 0.8, D + 0.6), at(0, 11, 0), C.Trim, true)
+	K.Block(model, Vector3.new(W + 1.2, 1, D + 1.2), at(0, H - 0.5, 0), C.Trim, true)
+	Architecture.GableRoof(L, cframe, W, D, H, 9, roof, cream, { Downspouts = true })
+
+	-- clock tower on the ridge
+	local tower = at(0, H + 8.5, 0)
+	K.Block(model, Vector3.new(16, 17, 16), tower, cream)
+	K.InkCorners(model, tower, Vector3.new(16, 17, 16))
+	K.Block(model, Vector3.new(17, 0.8, 17), at(0, H + 17, 0), C.Trim, true)
+	K.Spire(model, 18, 9, at(0, H + 17.2, 0), C.Roofs[1])
+	K.Block(model, Vector3.one * 0.8, at(0, H + 26.6, 0) * CFrame.Angles(math.pi / 4, 0, math.pi / 4), Color3.fromRGB(255, 205, 70), true)
+	local clock = at(0, H + 12, -8)
+	K.Cylinder(model, Vector3.new(0.2, 7, 7), clock * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, math.pi / 2, 0), C.Ink, true)
+	K.Cylinder(model, Vector3.new(0.3, 6.2, 6.2), clock * CFrame.new(0, 0, -0.25) * CFrame.Angles(0, math.pi / 2, 0), C.Trim, true)
+	K.Ink(model, Vector3.new(0.35, 2.4, 0.1), clock * CFrame.new(0, 1.1, -0.45))
+	K.Ink(model, Vector3.new(2.0, 0.3, 0.1), clock * CFrame.new(0.9, 0, -0.45))
+	for _, tick in { Vector3.new(0, 2.6, 0), Vector3.new(0, -2.6, 0), Vector3.new(2.6, 0, 0), Vector3.new(-2.6, 0, 0) } do
+		K.Ink(model, Vector3.new(0.4, 0.4, 0.1), clock * CFrame.new(tick.X, tick.Y, -0.45))
+	end
+
+	-- windows: two shuttered rows on the front, two per side wall
+	for _, y in { 6.5, 16 } do
+		for _, x in { -30, -20, -10, 10, 20, 30 } do
+			Architecture.Window(L, at(x, y, front), 3.6, 4.2, { Shutters = shutter, ShutterWidth = 1.3, Crown = true })
+		end
+	end
+	for _, side in { -1, 1 } do
+		for _, z in { -6, 6 } do
+			Architecture.Window(L, at(side * W / 2, 6.5, z) * sideFace(side), 3.6, 4.2, { Crown = true })
+		end
+	end
+
+	-- porch: deck, steps, four columns, flat roof, rocking chairs, double doors with a transom window
+	K.Block(model, Vector3.new(34, 1.2, 11), at(0, 0.6, front - 5.5), C.Stone)
+	K.Block(model, Vector3.new(12, 0.8, 1.6), at(0, 0.4, front - 11.8), C.Stone)
+	K.Block(model, Vector3.new(14, 0.4, 1.6), at(0, 0.2, front - 13.2), C.Stone)
+	for _, x in { -14, -5, 5, 14 } do
+		local column = at(x, 0, front - 10)
+		K.Block(model, Vector3.new(2.2, 0.8, 2.2), column * CFrame.new(0, 1.6, 0), C.Trim)
+		K.Block(model, Vector3.new(1.5, 10.6, 1.5), column * CFrame.new(0, 7.3, 0), C.Trim)
+		K.Block(model, Vector3.new(1.5, 10.6, 1.5), column * CFrame.new(0, 7.3, 0) * CFrame.Angles(0, math.pi / 4, 0), C.Trim, true)
+		K.Block(model, Vector3.new(2.4, 0.8, 2.4), column * CFrame.new(0, 13, 0), C.Trim, true)
+	end
+	K.Block(model, Vector3.new(36, 1, 12.5), at(0, 13.9, front - 5.8), C.Trim)
+	K.Ink(model, Vector3.new(36.1, 0.2, 0.2), at(0, 13.4, front - 12.05))
+	for _, x in { -9, 9 } do
+		GrandmaProps.RockingChair(model, at(x, 1.2, front - 4) * CFrame.Angles(0, if x < 0 then 0.3 else -0.3, 0), if x < 0 then C.Doors[2] else C.Doors[3])
+	end
+	for _, x in { -1.8, 1.8 } do
+		Architecture.Door(L, at(x, 1.4, front), 3.4, 8, C.Doors[4], { Glass = true })
+	end
+
+	-- the sign stands on the porch roof
+	local sign = K.Panel(model, 30, 3.6, at(0, 16.6, front - 11.6), Color3.fromRGB(40, 70, 140), 0.4, 0.4)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 25
+	gui.Parent = sign
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = "RETIREMENT HOME"
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.TextColor3 = Color3.fromRGB(255, 225, 120)
+	label.TextStrokeColor3 = C.Ink
+	label.TextStrokeTransparency = 0
+	label.Parent = gui
+
+	model.Parent = parent
+	return model
 end
 
 return Houses
