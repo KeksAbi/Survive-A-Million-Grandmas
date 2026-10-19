@@ -819,6 +819,7 @@ function MapBuilder.Build(): Folder
 		end
 	end
 	map.Parent = workspace
+	print("[MapBuilder] map built, car cabin v3 (inset windows, 9f5e9ce)")
 	return map
 end
 
