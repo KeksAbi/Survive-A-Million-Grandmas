@@ -15,6 +15,7 @@ local ComicKit = require(script.Parent.ComicKit)
 local Houses = require(script.Parent.Houses)
 local Props = require(script.Parent.Props)
 local Vegetation = require(script.Parent.Vegetation)
+local Vehicles = require(script.Parent.Vehicles)
 
 local K = ComicKit
 local C = ComicKit.Colors
@@ -71,11 +72,15 @@ local function tufts(center: Vector3, radius: number, count: number)
 	end
 end
 
+-- Vehicle outline layers (set in Build).
+local vehicles: Vehicles.Layers
+
 -- Parked car: two circles along its length keep grandmas off it.
-local function car(group: Instance, cframe: CFrame, kind: string?)
-	Props.Car(group, cframe, C.Cars[rng:NextInteger(1, #C.Cars)], kind)
-	for _, z in { -2.8, 2.8 } do
-		addObstacle((cframe * CFrame.new(0, 0, z)).Position, 2.9)
+local function car(kind: string, cframe: CFrame)
+	Vehicles.Build(vehicles, kind, cframe)
+	local spec = Vehicles.Specs[kind]
+	for _, z in { -spec.L / 4, spec.L / 4 } do
+		addObstacle((cframe * CFrame.new(0, 0, z)).Position, spec.W / 2 + 0.3)
 	end
 end
 
@@ -187,12 +192,13 @@ local function buildPark(groups: { [string]: Model })
 		Props.Hydrant(groups.StreetProps, CFrame.lookAt(hydrant, Vector3.new(0, 0, hydrant.Z)))
 		addObstacle(hydrant, 0.9)
 	end
-	-- one car parked at the outer curb of each side of the ring road
+	-- one car parked at the outer curb of each side of the ring road (the minivan by the park), clear of the
+	-- crosswalks and lamps
 	for i, side in SIDES do
 		local t = if i % 2 == 0 then 35 else -35
 		local along = if side[1] == 0 then Vector3.xAxis else Vector3.zAxis
 		local pos = Vector3.new(side[1], 0, side[2]) * (RING + 4.5) + along * t
-		car(groups.Cars, CFrame.lookAt(pos, pos + along), if i == 3 then "Pickup" else nil)
+		car(({ "Sedan", "Minivan", "Hatchback", "Wagon" })[i], CFrame.lookAt(pos, pos + along))
 	end
 end
 
@@ -271,7 +277,11 @@ local function buildScenery(groups: { [string]: Model })
 		Vegetation.Bed(garden, (home * CFrame.new(side * 19, 0, -19.6)).Position, (home * CFrame.new(side * 37, 0, -19.6)).Position, { "Rose" }, rng)
 		Vegetation.Bush(garden, "Pointed", (home * CFrame.new(side * 8.6, 0, -28.4)).Position, rng)
 	end
-	Props.SchoolBus(groups.Landmarks, CFrame.new(70, 0, -d - 18) * CFrame.Angles(0, math.pi / 2, 0))
+	-- the shuttle waits by the home (door toward it), two mobility scooters on the porch
+	Vehicles.Build(vehicles, "Shuttle", CFrame.new(70, 0, -d - 18) * CFrame.Angles(0, math.pi / 2, 0))
+	for _, side in { -1, 1 } do
+		Vehicles.Build(vehicles, "Scooter", home * CFrame.new(side * 13, 1.2, -22) * CFrame.Angles(0, side * 0.4, 0))
+	end
 
 	-- a ring of trees behind the houses: even spacing with a little jitter, kinds in a repeating pattern,
 	-- never inside a building
@@ -359,13 +369,14 @@ function MapBuilder.Build(): Folder
 
 	-- outline groups: neighbors in different groups get an ink line between them
 	local groups = {}
-	for _, name in { "Roads", "Park", "StreetProps", "Cars", "FoliageA", "FoliageB", "Wood", "Flowers", "HouseWalls", "HouseRoofs", "HouseDetails", "Yards", "Landmarks", "Fence" } do
+	for _, name in { "Roads", "Park", "StreetProps", "Cars", "CarDetails", "FoliageA", "FoliageB", "Wood", "Flowers", "HouseWalls", "HouseRoofs", "HouseDetails", "Yards", "Landmarks", "Fence" } do
 		groups[name] = K.OutlineGroup(map, name)
 	end
 	-- grass blades, stems and soil stay without outlines: at a distance an outline would be all you see of them
 	groups.Grass = K.Model("Grass")
 	groups.Grass.Parent = map
 	garden = Vegetation.LayersFrom(groups)
+	vehicles = { Body = groups.Cars, Details = groups.CarDetails }
 
 	buildGroundAndRoads(map, groups.Roads)
 	buildPark(groups)

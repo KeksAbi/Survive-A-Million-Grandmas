@@ -50,12 +50,14 @@ lighting), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Vi
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
 chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
 Flowering, Pointed, Trimmed, Wild, Leafy, Corner; flowers: Daisy, Rose, Tulip, Sunflower, Wildflower; grass tufts,
-garden beds, round flower beds), `Props` (cars, school bus, retirement home, fountain, lamps, benches,
+garden beds, round flower beds), `Vehicles` (Sedan, Hatchback, Wagon, Minivan, SUV, Pickup from one spec-driven
+car builder; grandma mobility Scooter; retirement-home Shuttle bus; Body + Details layers), `Props` (retirement
+home, fountain, lamps, benches,
 hydrants, fences, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
 spires/gems, ink panels, outline groups), `EnemyFactory` (enemy models from welded parts).
 
 Comic art style (2026-10-19): hard comic look. Black silhouette outlines = one outline-only Highlight per
-outline group (the map has 14 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
+outline group (the map has 15 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
 `workspace.Enemies` is a Model, one per character) added by the client's `OutlineController`; Roblox draws at most
 31 Highlights, so never one per prop. Inner ink lines = black plates behind windows/doors/signs and thin black
 bars. Flat SmoothPlastic, palette in `ComicKit.Colors`, hard shadows + color grade from `Config.Comic.Lighting`.
@@ -63,6 +65,8 @@ Small details are deco parts (no collision, no raycast, no shadow). Houses are s
 HouseDetails groups so roofs, windows, doors and porches get a thick ink line against the walls. Vegetation:
 leaf masses alternate FoliageA / FoliageB (ink lines between the masses of one canopy), Wood and Flowers are own
 groups; the Grass model (blades, stems, soil) is NOT outlined on purpose (would turn into black scribbles).
+Vehicles: body panels in `Cars`, glass/wheels/lights/bumpers/grille/mirrors/plates in `CarDetails` (ink around
+windows and wheels), ink parts for door/hood/trunk seams.
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
@@ -170,10 +174,14 @@ Report honestly what was tested and what was not.
   park (oaks/maples, cherries, path beds, round beds), outer lawn (bushes, roadside trees, sidewalk planting
   spots), house gardens (`Garden` lists in Houses), retirement home hedges, ring of trees behind the houses.
   Checked like the houses (mock run ~16.7k parts, 73 obstacles; preview renders).
+- [~] Comic vehicles (written 2026-10-19, NOT yet seen in Studio): Vehicles module. Placement: 4 cars at the ring
+  road's outer curb (Sedan, Minivan by the park, Hatchback, Wagon; obstacles as before), cars nose-in on the
+  Family/Bungalow driveways, Scooter on the pink house porch + 2 on the retirement home porch, Shuttle (replaces
+  the school bus) by the retirement home. Mock run ~17.7k parts.
 
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~16.7k parts (95% deco)
-  and ~23 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
+- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~17.7k parts (95% deco)
+  and ~24 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
   `Config.Comic.GrassTufts = false` drops the grass tufts.
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.

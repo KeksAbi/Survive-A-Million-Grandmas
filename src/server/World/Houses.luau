@@ -12,6 +12,7 @@ local Architecture = require(script.Parent.Architecture)
 local ComicKit = require(script.Parent.ComicKit)
 local Props = require(script.Parent.Props)
 local Vegetation = require(script.Parent.Vegetation)
+local Vehicles = require(script.Parent.Vehicles)
 
 local A = Architecture
 local K = ComicKit
@@ -29,9 +30,10 @@ type YardInfo = {
 	FenceZ: number, -- local z of the yard fence
 	LotLeft: number,
 	LotRight: number,
-	Garage: { X: number, Width: number, FrontZ: number }?,
+	Garage: { X: number, Width: number, FrontZ: number, Cars: { string } }?, -- a car parks nose-in on the driveway
 	-- Planting, in local x/z: { "Bush", kind, x, z, scale? } | { "Tree", kind, x, z, scale? } |
-	-- { "Flower", kind, x, z } | { "Bed", x1, x2, z, { flower kinds } } | { "Row", bush kind, x1, x2, z, spacing, scale }
+	-- { "Flower", kind, x, z } | { "Bed", x1, x2, z, { flower kinds } } | { "Row", bush kind, x1, x2, z, spacing, scale } |
+	-- { "Vehicle", kind, x, z, y, turn }
 	Garden: { { any } }?,
 	Decor: ((parent: Instance, at: (x: number, z: number) -> CFrame) -> ())?,
 }
@@ -97,7 +99,7 @@ function DESIGNS.Family(L, cframe, rng)
 		FenceZ = -18.6,
 		LotLeft = -14.5,
 		LotRight = 25,
-		Garage = { X = 18, Width = 10, FrontZ = -6 },
+		Garage = { X = 18, Width = 10, FrontZ = -6, Cars = { "SUV", "Wagon", "Sedan" } },
 		Garden = {
 			{ "Bed", 5.8, 11.2, -9.9, { "Tulip", "Daisy" } },
 			{ "Bush", "Corner", -13.8, -11.2, 0.7 },
@@ -249,6 +251,7 @@ function DESIGNS.GrandmaPink(L, cframe, rng)
 			{ "Flower", "Sunflower", -11.4, -17.8 },
 			{ "Bush", "Flowering", -13.9, -7.6, 0.6 },
 			{ "Bush", "Flowering", 13.9, -7.6, 0.6 },
+			{ "Vehicle", "Scooter", -9.6, -12.4, 1.2, 0.5 },
 		},
 		Decor = function(parent, spot)
 			Props.Flamingo(parent, spot(9.4, -17.3) * CFrame.Angles(0, 0.6, 0))
@@ -345,7 +348,7 @@ function DESIGNS.Bungalow(L, cframe, rng)
 		FenceZ = -18.8,
 		LotLeft = -15.5,
 		LotRight = 25.5,
-		Garage = { X = 19, Width = 10, FrontZ = -5 },
+		Garage = { X = 19, Width = 10, FrontZ = -5, Cars = { "Pickup", "Hatchback", "SUV" } },
 		Garden = {
 			{ "Bed", -12, -6.4, -17.2, { "Daisy", "Wildflower" } },
 			{ "Bed", -1.6, 8, -17.2, { "Tulip", "Daisy" } },
@@ -364,7 +367,7 @@ Houses.Designs = { "Family", "Cottage", "Colonial", "GrandmaPink", "Victorian", 
 
 -- Front yard: picket fence across the lot (open at the path and the driveway), stepping stones, driveway with
 -- joints and a parked car, mailbox at the fence, the design's garden and decorations, grass at the gate.
-local function buildYard(parent: Instance, cars: Instance, garden: Vegetation.Layers, cframe: CFrame, info: YardInfo, rng: Random)
+local function buildYard(parent: Instance, vehicles: Vehicles.Layers, garden: Vegetation.Layers, cframe: CFrame, info: YardInfo, rng: Random)
 	local function spot(x: number, z: number): CFrame
 		return cframe * CFrame.new(x, 0, z)
 	end
@@ -407,8 +410,8 @@ local function buildYard(parent: Instance, cars: Instance, garden: Vegetation.La
 		for jz = garage.FrontZ - 4, far + 1, -4 do
 			K.Block(parent, Vector3.new(garage.Width, 0.04, 0.15), spot(garage.X, jz) * CFrame.new(0, 0.22, 0), C.SidewalkJoint, true)
 		end
-		local kind = if rng:NextNumber() < 0.4 then "Pickup" else nil
-		Props.Car(cars, spot(garage.X, garage.FrontZ - 6.5) * CFrame.Angles(0, math.pi, 0), C.Cars[rng:NextInteger(1, #C.Cars)], kind)
+		local kind = garage.Cars[rng:NextInteger(1, #garage.Cars)]
+		Vehicles.Build(vehicles, kind, spot(garage.X, garage.FrontZ - Vehicles.HalfLength(kind) - 0.4) * CFrame.Angles(0, math.pi, 0))
 	end
 
 	local mailColors = { Color3.fromRGB(220, 50, 45), C.Roofs[1], C.MetalDark }
@@ -423,6 +426,8 @@ local function buildYard(parent: Instance, cars: Instance, garden: Vegetation.La
 			Vegetation.Flower(garden, plant[2], spot(plant[3], plant[4]).Position, rng, nil, cframe.LookVector)
 		elseif what == "Bed" then
 			Vegetation.Bed(garden, spot(plant[2], plant[4]).Position, spot(plant[3], plant[4]).Position, plant[5], rng)
+		elseif what == "Vehicle" then
+			Vehicles.Build(vehicles, plant[2], spot(plant[3], plant[4]) * CFrame.new(0, plant[5], 0) * CFrame.Angles(0, plant[6], 0))
 		elseif what == "Row" then
 			for rowX = plant[3], plant[4] + 0.01, plant[6] do
 				Vegetation.Bush(garden, plant[2], spot(rowX, plant[5]).Position, rng, plant[7])
@@ -449,7 +454,7 @@ function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: strin
 	end
 	local layers = { Walls = sub(groups.HouseWalls), Roofs = sub(groups.HouseRoofs), Details = sub(groups.HouseDetails) }
 	local info = DESIGNS[design](layers, cframe, rng)
-	buildYard(sub(groups.Yards), groups.Cars, Vegetation.LayersFrom(groups), cframe, info, rng)
+	buildYard(sub(groups.Yards), { Body = groups.Cars, Details = groups.CarDetails }, Vegetation.LayersFrom(groups), cframe, info, rng)
 end
 
 return Houses
