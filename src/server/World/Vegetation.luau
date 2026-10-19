@@ -10,6 +10,7 @@
 -- flares and bark grooves, wedge blades and petals. Never plain spheres.
 
 local ComicKit = require(script.Parent.ComicKit)
+local Meshes = require(script.Parent.Meshes)
 
 local K = ComicKit
 local C = ComicKit.Colors
@@ -113,12 +114,145 @@ local function spread(rng: Random, i: number, count: number, rise: number): Vect
 	return Vector3.new(math.cos(angle), rise, math.sin(angle)).Unit
 end
 
+------------------------------------------------------------------------------------------------ mesh templates
+-- The broadleaf tree and the round bushes are real meshes (World/Meshes): a canopy is 10-12 faceted lumps
+-- in three greens (dark low, light on top) merged into two meshes, alternating FoliageA / FoliageB so ink
+-- lines run between the lumps; the wood is a tapered octagonal trunk plus one mesh of branches and root flares.
+-- Three variants of each are built once and cloned with a random turn and scale.
+
+local VARIANTS = 3
+
+local function canopyTones(leaves: Color3): { Color3 }
+	return { leaves:Lerp(C.Ink, 0.2), leaves, K.Light(leaves) }
+end
+
+-- Lumps on a dome: { offset, diameter, tone (1 dark .. 3 light), layer "A"/"B" } -> two merged meshes.
+local function canopy(lumps: { { any } }, tones: { Color3 }, rng: Random, squash: number?): Meshes.Pieces
+	local sets = { A = {}, B = {} }
+	for _, lump in lumps do
+		table.insert(sets[lump[4]], Meshes.Lump(lump[2], lump[1], tones[lump[3]], rng, squash))
+	end
+	local pieces = {}
+	for key, parts in sets do
+		if #parts > 0 then
+			local part = Meshes.Finish(Meshes.Union(parts), false, true, "Leaves")
+			table.insert(pieces, { Layer = "Foliage" .. key, Part = part })
+		end
+	end
+	return pieces
+end
+
+-- Cloud of `count` lumps over the upper part of an ellipsoid (`radii`) around `center`, plus a hidden core:
+-- a scalloped silhouette like a drawn tree crown. Lumps are toned by height (dark underside, light top) and
+-- grouped into clumps by direction (four sides + the crown top), alternating A/B, so ink lines outline the
+-- clumps but not every lump.
+local function cloud(center: Vector3, radii: Vector3, count: number, size: number, rng: Random): { { any } }
+	local lumps = { { center, math.min(radii.X, radii.Y) * 1.7, 2, "A" } }
+	local turn = rng:NextNumber(0, math.pi * 2)
+	for i = 0, count - 1 do
+		local y = 1 - (i + 0.5) / count * 1.6 -- top (1) down to below the equator (-0.6)
+		local ring = math.sqrt(math.max(0, 1 - y * y))
+		local a = i * 2.39996 + turn
+		local dir = Vector3.new(math.cos(a) * ring, y, math.sin(a) * ring)
+		local at = center + Vector3.new(dir.X * radii.X, dir.Y * radii.Y, dir.Z * radii.Z) * rng:NextNumber(0.86, 1.0)
+		local tone = if y > 0.45 then 3 elseif y > -0.15 then 2 else 1
+		local side = math.floor(((a - turn) % (math.pi * 2)) / (math.pi / 2))
+		local layer = if y > 0.62 then "A" elseif side % 2 == 0 then "B" else "A"
+		table.insert(lumps, { at, size * rng:NextNumber(0.85, 1.15), tone, layer })
+	end
+	return lumps
+end
+
+-- Broadleaf mesh trees: Oak = broad suburban shade tree (the benchmark tree, about 16 tall, 13 wide);
+-- Roadside = slimmer street tree with a tall oval crown (about 13 tall, 8 wide).
+local BROADLEAF = {
+	Oak = { Fork = { 5.0, 5.8 }, Trunk = { 1.1, 0.75 }, Branches = 4, Reach = { 4.0, 4.8 }, Rise = { 0.7, 1.1 }, Radius = { 5.4, 6.0 }, Height = { 4.0, 4.6 }, Lift = 4.6, Lumps = 22, Lump = 3.9 },
+	Roadside = { Fork = { 3.6, 4.2 }, Trunk = { 0.7, 0.45 }, Branches = 3, Reach = { 2.6, 3.2 }, Rise = { 1.6, 2.2 }, Radius = { 3.3, 3.7 }, Height = { 4.0, 4.5 }, Lift = 4.0, Lumps = 16, Lump = 2.8 },
+}
+
+local function meshBroadleaf(kind: string, variant: number): Meshes.Pieces
+	local spec = BROADLEAF[kind]
+	local rng = Random.new(variant * 7919 + #kind)
+	local bark = PALETTE.Bark
+	local function between(range: { number }): number
+		return rng:NextNumber(range[1], range[2])
+	end
+	local forkH = between(spec.Fork)
+	local w0, w1 = spec.Trunk[1], spec.Trunk[2]
+	local trunkPart = Meshes.Finish(Meshes.Frustum(CFrame.new(), w0, w1, forkH + 0.4, bark, 8), true, true, "Trunk")
+	local wood = {}
+	local fork = Vector3.new(0, forkH - 0.3, 0)
+	for i = 0, spec.Branches - 1 do
+		local a = i * math.pi * 2 / spec.Branches + rng:NextNumber(-0.4, 0.4)
+		local dir = Vector3.new(math.cos(a), between(spec.Rise), math.sin(a)).Unit
+		table.insert(wood, Meshes.Frustum(Meshes.Along(fork, dir), w1 * 0.75, w1 * 0.33, between(spec.Reach), bark, 6))
+	end
+	table.insert(wood, Meshes.Frustum(Meshes.Along(fork, Vector3.yAxis), w1 * 0.8, w1 * 0.4, 3.6, bark, 6))
+	for i = 0, 3 do
+		local a = i * math.pi / 2 + 0.7 + rng:NextNumber(-0.3, 0.3)
+		local out = Vector3.new(math.cos(a), 0, math.sin(a))
+		local at = out * w0 * 1.05 + Vector3.new(0, w0 * 0.4, 0)
+		table.insert(wood, Meshes.Block(Vector3.new(0.7, 0.82, 1.0) * w0, CFrame.lookAt(at, at + out), bark, "WedgePart"))
+	end
+	local branches = Meshes.Finish(Meshes.Union(wood, bark), false, false, "Branches")
+
+	local leaves = C.Leaves[1 + (variant + #kind) % #C.Leaves]
+	local center = Vector3.new(0, forkH + spec.Lift, 0)
+	local r = between(spec.Radius)
+	local radii = Vector3.new(r, between(spec.Height), r * rng:NextNumber(0.92, 1.0))
+	local pieces = canopy(cloud(center, radii, spec.Lumps, spec.Lump, rng), canopyTones(leaves), rng)
+	table.insert(pieces, { Layer = "Wood", Part = trunkPart })
+	table.insert(pieces, { Layer = "Wood", Part = branches })
+	return pieces
+end
+
+-- Round garden bush, about 2.8 tall and 3.6 wide; `flowers` adds a mesh of blossoms dotted over it.
+local function meshBush(variant: number, flowers: boolean): Meshes.Pieces
+	local rng = Random.new(variant * 104729 + (if flowers then 1 else 0))
+	local leaves = C.Leaves[if flowers then 1 else 3]
+	local center, radii = Vector3.new(0, 1.35, 0), Vector3.new(1.5, 1.2, 1.5)
+	local lumps = cloud(center, radii, 11, 1.5, rng)
+	local pieces = canopy(lumps, canopyTones(leaves), rng, 0.8)
+	if flowers then
+		local bloom = PALETTE.Tulips[1 + (variant - 1) % 4]
+		local blossoms = {}
+		for i = 0, 11 do
+			local y = 0.85 - i / 11 * 1.1
+			local ring = math.sqrt(1 - y * y)
+			local a = i * 2.39996 + rng:NextNumber(-0.3, 0.3)
+			local dir = Vector3.new(math.cos(a) * ring, y, math.sin(a) * ring)
+			local at = center + Vector3.new(dir.X * radii.X, dir.Y * radii.Y, dir.Z * radii.Z) + dir * 0.62
+			table.insert(blossoms, Meshes.Lump(0.6, at, if i % 3 == 0 then K.Light(bloom) else bloom, rng, 0.7))
+		end
+		table.insert(pieces, { Layer = "Bloom", Part = Meshes.Finish(Meshes.Union(blossoms), false, false, "Blossoms") })
+	end
+	return pieces
+end
+
+-- Places mesh template `kind`..variant if CSG works; false = build the primitive version instead.
+local function placeMesh(L: Layers, kind: string, build: (number) -> Meshes.Pieces, base: CFrame, rng: Random, s: number): boolean
+	local variant = rng:NextInteger(1, VARIANTS)
+	local name = kind .. variant
+	if not Meshes.Ensure(name, function()
+		return build(variant)
+	end) then
+		return false
+	end
+	Meshes.Place(name, L :: any, base, s)
+	return true
+end
+
 ------------------------------------------------------------------------------------------------------- trees
 
 local TREES = {}
 
 -- Large suburban oak: thick root-flared trunk, four wide branches, a broad irregular canopy.
 function TREES.Oak(L: Layers, base: CFrame, rng: Random, s: number)
+	if placeMesh(L, "Oak", function(v)
+		return meshBroadleaf("Oak", v)
+	end, base, rng, s) then
+		return
+	end
 	local top = trunk(L, base, { 2.2 * s, 1.8 * s, 1.4 * s }, 2.2 * s, math.rad(5), rng)
 	local leaves = C.Leaves[rng:NextInteger(1, #C.Leaves)]
 	local fork = top.Position - Vector3.new(0, 0.6 * s, 0)
@@ -204,6 +338,11 @@ end
 
 -- Medium roadside tree: narrow straight trunk, two short branches, a compact upright crown.
 function TREES.Roadside(L: Layers, base: CFrame, rng: Random, s: number)
+	if placeMesh(L, "Roadside", function(v)
+		return meshBroadleaf("Roadside", v)
+	end, base, rng, s) then
+		return
+	end
 	local top = trunk(L, base, { 0.9 * s, 0.75 * s, 0.6 * s }, 2.0 * s, math.rad(2), rng)
 	local leaves = C.Leaves[rng:NextInteger(1, #C.Leaves)]
 	local stem = top.Position
@@ -228,6 +367,11 @@ local BUSHES = {}
 
 -- Dense round decorative bush: a clipped core with four lumps and a lighter top.
 function BUSHES.Round(L: Layers, base: CFrame, rng: Random, s: number)
+	if placeMesh(L, "RoundBush", function(v)
+		return meshBush(v, false)
+	end, base, rng, s) then
+		return
+	end
 	local leaves = C.Leaves[3]
 	K.Gem(L.FoliageA, 2.2 * s, (base * CFrame.new(0, 1.1 * s, 0)).Position, leaves, rng, true)
 	for i = 0, 3 do
@@ -248,6 +392,11 @@ end
 
 -- Small flowering shrub (hydrangea): three leaf masses with clusters of four-petal florets.
 function BUSHES.Flowering(L: Layers, base: CFrame, rng: Random, s: number)
+	if placeMesh(L, "FloweringBush", function(v)
+		return meshBush(v, true)
+	end, base, rng, s) then
+		return
+	end
 	local leaves = C.Leaves[1]
 	local bloom = PALETTE.Tulips[rng:NextInteger(1, 4)]
 	for i = 0, 2 do

@@ -76,6 +76,9 @@ cones, A-frame and jersey barriers, garbage bags, bike racks, bicycles; manholes
 `GrandmaProps` (yarn balls, giant knitting needles with a scarf, knitting basket, slippers, rocking chair, cookie
 stall, BINGO sign, retirement-home billboard, grandma statue, shopping cart with groceries), `ComicKit` (palette,
 flat parts, wedges/prisms/spires/cones/gems, balls, rods/tubes, octagons, text, ink panels, outline groups),
+`Meshes` (real mesh geometry from in-game CSG at server start: `Solid` = box cut by planes, `Frustum`, `Lump` =
+faceted blob, `Union`/`Subtract`; `Ensure(name, build)` builds a template once, `Place(name, layers, cframe, scale,
+paint)` clones it; CSG failure or `Config.Comic.Meshes = false` -> callers build their part version),
 `EnemyFactory` (enemy models from welded parts).
 Props: ground CFrame in (LookVector = front), Model out; small pieces deco, only big bodies solid; anything solid
 inside the arena gets an obstacle circle in MapBuilder.
@@ -233,8 +236,23 @@ Report honestly what was tested and what was not.
   hidden backyard fences, fence-post finials; outside-the-arena parts non-colliding. Park re-measured: 126 x 126.
   Mock run ~26.4k parts, 127 obstacles.
 
+- [~] Mesh quality benchmark (written 2026-10-19, NOT yet seen in Studio): `Meshes` (runtime CSG via
+  GeometryService). Mesh versions of the Oak + Roadside trees (tapered octagonal trunk, branch + root mesh, a crown
+  of 16-22 faceted lumps in three greens, two canopy meshes for inner ink lines), Round + Flowering bushes (with a
+  blossom mesh), the Sedan (body with sloped hood/trunk, bevels and cut wheel arches merged with a raked cabin; a
+  glass shell with A/B/C pillars cut out; one-mesh wheels). Street section: Family yard landscaping (foundation
+  bushes, flowering shrubs, front-yard oak), street trees on the lot lines, two rings of mesh trees behind the
+  houses (no obstacles outside the arena). 3 variants per tree/bush kind, ~300 CSG calls at server start.
+  Mock run ~27.8k instances (a mesh tree is 4 parts instead of ~30), 127 obstacles; CSG-failure fallback
+  checked in the mock; preview renders from an offline CSG evaluator.
+
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges/Cylinders/Balls, so
+- Meshes: custom MeshParts cannot be uploaded from code. EditableMesh could build them at runtime, but published
+  games only allow it when the owner is 13+ and ID-verified (plus a Game Settings toggle), and its meshes do not
+  replicate, so the map uses in-game CSG (`Meshes`) instead: flat-faceted convex solids, unions and cuts (no
+  smooth curves, no sculpted shapes). ~300 CSG calls at server start: check the startup time in Studio. Only the
+  benchmark kinds are meshes so far (Oak, Roadside, Round + Flowering bushes, Sedan).
+- Comic map: everything else is Parts/Wedges/Cylinders/Balls, so
   curves (hoses, rockers, wheels, arches) are short straight segments or round parts, and cones/steeples have a
   small flat tip (capped with a ball where it shows). ~26.4k parts (98% decoration: no collision, no raycasts;
   everything outside the arena fence is non-colliding) and ~25 Highlights: check FPS on a phone.

@@ -191,6 +191,9 @@ return {
 		-- small yard clutter (hose reels, watering cans, flowerpots, slippers, tool racks, knitting baskets,
 		-- garbage bags; PropLibrary.Small). Off = about 2k fewer parts on phones.
 		SmallDetails = true,
+		-- Real mesh shapes (tree canopies, bushes, car bodies) cut at server start with in-game CSG
+		-- (World/Meshes). Off, or if CSG fails, the same things are built from plain parts.
+		Meshes = true,
 		Lighting = {
 			ClockTime = 14,
 			Brightness = 3,

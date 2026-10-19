@@ -9,6 +9,7 @@
 -- Placement: `cframe` = ground point under the vehicle's center, LookVector = its nose.
 
 local ComicKit = require(script.Parent.ComicKit)
+local Meshes = require(script.Parent.Meshes)
 
 local K = ComicKit
 local C = ComicKit.Colors
@@ -95,12 +96,207 @@ local function bumper(D: Instance, cf: CFrame, W: number, y: number, z: number, 
 	K.Block(D, Vector3.new(W - 1.2, 0.18, 0.4), cf * CFrame.new(0, y - 0.32, z - e * 0.05), K.Dark(color), true)
 end
 
+----------------------------------------------------------------------------------------------------- mesh cars
+-- Car bodies as real meshes (World/Meshes), built once per kind and cloned with the paint color:
+--   * Paint: one solid mesh: the lower body (sloped hood, sloped trunk lid, bevelled nose, tail, shoulders
+--     and rocker, chamfered corners) minus four wheel arches, merged with the cabin (raked windshield and rear
+--     glass, sides leaning in, bevelled roof edges).
+--   * Glass: a shell 0.07 outside the cabin, cut to the window band, with A, B and C pillars cut out of it, so
+--     the paint shows through as pillars and the glass gets its own ink line (Details layer).
+--   * Wheels: one mesh each (tire, rim, hub, spokes) set into the arches over a dark wheel well.
+--   * Lights, grille, bumpers, plates, mirrors, handles and seams stay small plain parts.
+local MESH_KINDS = { Sedan = true }
+
+local function meshCar(kind: string): Meshes.Pieces
+	local spec = SPECS[kind]
+	local W, len, r = spec.W, spec.L, spec.Wheel
+	local hw = W / 2
+	local bot = spec.Clear
+	local top = spec.Clear + spec.BodyH + 0.25
+	local nose, tail = -len / 2, len / 2
+	local z1, z2 = spec.Cabin[1], spec.Cabin[2]
+	local front, back = z1 - spec.RakeF, z2 + spec.RakeR
+	local roofY = top + spec.CabinH
+	local X, Y, Z = Vector3.xAxis, Vector3.yAxis, Vector3.zAxis
+	local function v(x: number, y: number, z: number): Vector3
+		return Vector3.new(x, y, z)
+	end
+	local edge = Meshes.Edge
+
+	-- lower body
+	local planes = {
+		edge(v(0, top, front), v(0, top - 0.55, nose), X, v(0, 1, -0.2)), -- hood
+		edge(v(0, top - 0.55, nose + 0.3), v(0, top - 0.85, nose), X, v(0, 1, -1)), -- nose top
+		edge(v(0, bot + 0.45, nose), v(0, bot, nose + 0.55), X, v(0, -1, -1)), -- chin
+		edge(v(0, top - 0.3, tail - 0.35), v(0, top - 0.7, tail), X, v(0, 1, 1)), -- tail top
+		edge(v(0, bot + 0.4, tail), v(0, bot, tail - 0.45), X, v(0, -1, 1)), -- tail bottom
+	}
+	if tail - back > 1 then
+		table.insert(planes, edge(v(0, top, back), v(0, top - 0.3, tail - 0.35), X, v(0, 1, 0.2))) -- trunk lid
+	end
+	for _, sx in { -1, 1 } do
+		table.insert(planes, edge(v(sx * (hw - 0.35), top, 0), v(sx * hw, top - 0.3, 0), Z, v(sx, 1, 0))) -- shoulder
+		table.insert(planes, edge(v(sx * hw, bot + 0.35, 0), v(sx * (hw - 0.3), bot, 0), Z, v(sx, -1, 0))) -- rocker
+		table.insert(planes, edge(v(sx * hw, 0, nose + 1.0), v(sx * (hw - 0.7), 0, nose), Y, v(sx, 0, -1))) -- front corner
+		table.insert(planes, edge(v(sx * hw, 0, tail - 0.8), v(sx * (hw - 0.55), 0, tail), Y, v(sx, 0, 1))) -- rear corner
+	end
+	local body = Meshes.Solid(v(W, top - bot, len), CFrame.new(0, (top + bot) / 2, 0), planes, spec.Color)
+	local arches = {}
+	for _, sx in { -1, 1 } do
+		for _, z in spec.Axles do
+			table.insert(arches, Meshes.Cylinder(v(1.4, 2 * r + 0.36, 2 * r + 0.36), CFrame.new(sx * (hw - 0.5), r, z), spec.Color))
+		end
+	end
+	body = Meshes.Subtract(body, arches, spec.Color)
+
+	-- cabin: sides lean in by `lean` from the belt line to the roof
+	local belt = hw - 0.45
+	local lean = 0.5
+	local function sideX(y: number): number
+		return belt - lean * (y - top) / spec.CabinH
+	end
+	local function cabinPlanes(grow: number): { CFrame }
+		local list = {
+			edge(v(0, top, front), v(0, roofY, z1), X, v(0, 1, -1)), -- windshield
+		}
+		if spec.RakeR > 0.15 then
+			table.insert(list, edge(v(0, roofY, z2), v(0, top, back), X, v(0, 1, 1))) -- rear glass
+		end
+		for _, sx in { -1, 1 } do
+			table.insert(list, edge(v(sx * sideX(top), top, 0), v(sx * sideX(roofY), roofY, 0), Z, v(sx, 0.1, 0)))
+			table.insert(list, edge(v(sx * (sideX(roofY) - 0.3), roofY, 0), v(sx * sideX(roofY - 0.3), roofY - 0.3, 0), Z, v(sx, 1, 0)))
+		end
+		for i, plane in list do
+			list[i] = plane * CFrame.new(0, 0, -grow)
+		end
+		return list
+	end
+	local cabinSize = v(2 * belt + 0.4, spec.CabinH + 0.1, back - front + 0.4)
+	local cabinAt = CFrame.new(0, top + (spec.CabinH - 0.1) / 2, (front + back) / 2)
+	local cabin = Meshes.Solid(cabinSize, cabinAt, cabinPlanes(0), spec.Color)
+	local paint = Meshes.Finish(Meshes.Union({ body, cabin }, spec.Color), true, true, "Paint")
+
+	-- glass shell with the pillars cut out
+	local band = cabinPlanes(0.07)
+	table.insert(band, Meshes.Plane(v(0, roofY - 0.28, 0), Y))
+	table.insert(band, Meshes.Plane(v(0, top + 0.28, 0), -Y))
+	local glass = Meshes.Solid(cabinSize + v(0.4, 0.4, 0.4), cabinAt, band, C.Glass)
+	local pillars = {}
+	local function pillar(a: Vector3, b: Vector3, width: number)
+		table.insert(pillars, Meshes.Block(v(width, width, (b - a).Magnitude + 1.2), CFrame.lookAt((a + b) / 2, b), C.Glass))
+	end
+	local seams = table.clone(spec.Pillars or {})
+	if spec.Doors == 4 then
+		table.insert(seams, (z1 + z2) / 2 - 0.3)
+	end
+	for _, sx in { -1, 1 } do
+		pillar(v(sx * sideX(top), top, front), v(sx * sideX(roofY), roofY, z1), 0.5)
+		if spec.RakeR > 0.15 then
+			pillar(v(sx * sideX(top), top, back), v(sx * sideX(roofY), roofY, z2), if spec.RakeR > 1 then 1.1 else 0.6)
+		else
+			pillar(v(sx * sideX(top), top, back - 0.2), v(sx * sideX(roofY), roofY, back - 0.2), 0.7)
+		end
+	end
+	for _, z in seams do
+		table.insert(pillars, Meshes.Block(v(W + 1, spec.CabinH + 1, 0.35), CFrame.new(0, top + spec.CabinH / 2, z), C.Glass))
+	end
+	glass = Meshes.Finish(Meshes.Subtract(glass, pillars, C.Glass), false, false, "Glass")
+
+	-- one wheel mesh, copied to all four corners
+	local width = 0.9
+	local hub = Meshes.Union({
+		Meshes.Cylinder(v(width, 2 * r, 2 * r), CFrame.new(), TIRE),
+		Meshes.Cylinder(v(width + 0.06, 1.3 * r, 1.3 * r), CFrame.new(), C.Metal),
+		Meshes.Cylinder(v(width + 0.14, 0.4 * r, 0.4 * r), CFrame.new(), C.MetalDark),
+		Meshes.Block(v(width + 0.1, 1.2 * r, 0.18), CFrame.new(), C.MetalDark),
+		Meshes.Block(v(width + 0.1, 1.2 * r, 0.18), CFrame.Angles(math.pi / 3, 0, 0), C.MetalDark),
+		Meshes.Block(v(width + 0.1, 1.2 * r, 0.18), CFrame.Angles(-math.pi / 3, 0, 0), C.MetalDark),
+	})
+	local pieces = { { Layer = "Body", Part = paint }, { Layer = "Details", Part = glass } }
+	for _, sx in { -1, 1 } do
+		for _, z in spec.Axles do
+			local tire = hub:Clone()
+			tire.CFrame = CFrame.new(sx * (hw - 0.45), r, z)
+			table.insert(pieces, { Layer = "Details", Part = Meshes.Finish(tire, false, false, "Wheel") })
+		end
+	end
+	hub:Destroy()
+
+	-- small plain-part details, built around the origin like the old car
+	local B, D = K.Model(kind), K.Model(kind)
+	local function at(x: number, y: number, z: number): CFrame
+		return CFrame.new(x, y, z)
+	end
+	for _, sx in { -1, 1 } do
+		for _, z in spec.Axles do
+			K.Cylinder(D, v(0.06, 2 * r + 0.3, 2 * r + 0.3), at(sx * (hw - 1.18), r, z), WELL, true)
+		end
+		-- door seams (clear of the arches), handles, rocker line
+		local doorFront = math.max(front + 0.3, spec.Axles[1] + r + 0.5)
+		local doorBack = math.min(z1 + 4.4, spec.Axles[2] - r - 0.4)
+		local doorSeams = if spec.Doors == 4 then { doorFront, (z1 + z2) / 2 - 0.3, doorBack } else { doorFront, doorBack }
+		for i, sz in doorSeams do
+			K.Ink(D, v(0.06, top - bot - 1.0, 0.07), at(sx * (hw + 0.02), bot + 0.5 + (top - bot - 1.0) / 2, sz))
+			if i < #doorSeams then
+				K.Block(D, v(0.1, 0.16, 0.5), at(sx * (hw + 0.05), top - 0.65, sz + 0.55), C.Metal, true)
+			end
+		end
+		K.Ink(D, v(0.06, 0.08, spec.Axles[2] - spec.Axles[1] - 2 * r - 0.6), at(sx * (hw + 0.02), bot + 0.5, (spec.Axles[1] + spec.Axles[2]) / 2))
+		-- mirror on an arm at the windshield base (the housing takes the paint color)
+		K.Block(D, v(0.5, 0.12, 0.12), at(sx * (belt + 0.2), top + 0.25, front + 0.55), C.MetalDark, true)
+		local mirror = K.Block(B, v(0.35, 0.45, 0.6), at(sx * (belt + 0.5), top + 0.4, front + 0.55), spec.Color, true)
+		mirror.Name = "Paint"
+		K.Block(D, v(0.3, 0.35, 0.05), at(sx * (belt + 0.5), top + 0.4, front + 0.86), C.Glass, true)
+		-- shine streak on the side glass
+		K.Block(D, v(0.06, spec.CabinH * 0.45, 0.2), at(sx * (sideX(top + spec.CabinH * 0.5) + 0.09), top + spec.CabinH * 0.5, (z1 + z2) / 2 + 0.8) * CFrame.Angles(math.rad(-30), 0, sx * math.atan(lean / spec.CabinH)), C.GlassShine, true)
+	end
+	-- nose: grille with chrome bars and badge, headlights, bumper, plate
+	local faceY = (bot + 0.45 + top - 0.85) / 2
+	local grilleW = W * 0.36
+	K.Panel(D, grilleW, 0.45, at(0, faceY - 0.1, nose), C.MetalDark, 0.12, 0.08)
+	for _, y in { -0.1, 0.1 } do
+		K.Block(D, v(grilleW - 0.1, 0.07, 0.05), at(0, faceY - 0.1 + y, nose - 0.22), C.Metal, true)
+	end
+	K.Block(D, v(0.28, 0.28, 0.08), at(0, faceY - 0.1, nose - 0.27) * CFrame.Angles(0, 0, math.pi / 4), BRASS, true)
+	for _, sx in { -1, 1 } do
+		local lamp = at(sx * (hw - 1.05), faceY + 0.05, nose)
+		K.Panel(D, 1.0, 0.5, lamp, HEADLIGHT, 0.12, 0.08)
+		K.Block(D, v(0.32, 0.26, 0.05), lamp * CFrame.new(-sx * 0.2, 0, -0.2), C.Trim, true)
+		local tailLamp = at(sx * (hw - 0.95), (bot + 0.4 + top - 0.7) / 2 + 0.05, tail) * CFrame.Angles(0, math.pi, 0)
+		K.Panel(D, 0.9, 0.5, tailLamp, TAILLIGHT, 0.12, 0.08)
+		K.Block(D, v(0.9, 0.14, 0.05), tailLamp * CFrame.new(0, -0.2, -0.2), AMBER, true)
+	end
+	local bumperY = bot + 0.3
+	local cfOrigin = CFrame.new()
+	bumper(D, cfOrigin, W - 0.4, bumperY, nose - 0.05, -1, spec.Bumper)
+	bumper(D, cfOrigin, W - 0.4, bumperY, tail + 0.05, 1, spec.Bumper)
+	plate(D, at(0, bumperY, nose - 0.4), "GRAN " .. string.upper(string.sub(kind, 1, 3)))
+	plate(D, at(0, bumperY, tail + 0.4) * CFrame.Angles(0, math.pi, 0), "OLD 4EVR")
+	-- wipers, cowl seam, trunk seam
+	for _, x in { -0.9, 0.9 } do
+		K.Ink(D, v(1.7, 0.08, 0.08), at(x, top + 0.12, front + 0.4) * CFrame.Angles(0, 0, if x < 0 then 0.18 else -0.18))
+	end
+	K.Ink(D, v(W - 1.4, 0.05, 0.08), at(0, top + 0.02, front - 0.15))
+	if tail - back > 1 then
+		K.Ink(D, v(W - 1.4, 0.05, 0.08), at(0, top - 0.02, back + 0.25))
+	end
+	table.insert(pieces, { Layer = "Body", Part = Meshes.Group("Trim", B:GetChildren()) })
+	table.insert(pieces, { Layer = "Details", Part = Meshes.Group("Details", D:GetChildren()) })
+	return pieces
+end
+
 ----------------------------------------------------------------------------------------------------------- cars
 
 local function car(L: Layers, kind: string, cf: CFrame, paint: Color3?): (Model, Model)
 	local spec = SPECS[kind]
 	local B, D = models(L, kind)
 	local color = paint or spec.Color
+	if MESH_KINDS[kind] and Meshes.Ensure("Car" .. kind, function()
+		return meshCar(kind)
+	end) then
+		Meshes.Place("Car" .. kind, { Body = B, Details = D }, cf, 1, color)
+		return B, D
+	end
 	local W, len = spec.W, spec.L
 	local c = 0.45 -- bevel on the body's top edges
 	local top = spec.Clear + spec.BodyH

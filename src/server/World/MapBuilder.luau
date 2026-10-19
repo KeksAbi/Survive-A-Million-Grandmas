@@ -490,6 +490,25 @@ local function buildScenery(groups: { [string]: Model }): { { { number } } }
 			table.insert(blockers, { position, n, 13 })
 		end
 	end
+	-- street trees on the lot lines between the houses, just inside the front fences (a tree-lined street),
+	-- moved off any driveway
+	for _, sideIndex in { 2, 3, 4 } do
+		local n, tan = sideFrame(SIDES[sideIndex])
+		for _, t in { -132, -88, -44, 0, 44, 88, 132 } do
+			for _, shift in { 0, 5, -5 } do
+				local clear = true
+				for _, apron in aprons[sideIndex] do
+					if math.abs(t + shift - apron[1]) < apron[2] / 2 + 3 then
+						clear = false
+					end
+				end
+				if clear then
+					Vegetation.Tree(garden, "Roadside", n * (HOUSE_ROW - 16.4) + tan * (t + shift), rng, rng:NextNumber(0.95, 1.1))
+					break
+				end
+			end
+		end
+	end
 	-- the north side is the town's main street: the retirement home in the middle, the town hall and the coffee
 	-- shop to the west, the grocery and the weapon shop to the east, the gas station on the north-east corner
 	-- lot; the shuttle waits at the curb by the grocery
@@ -508,22 +527,32 @@ local function buildScenery(groups: { [string]: Model }): { { { number } } }
 	end
 	Vehicles.Build(vehicles, "Shuttle", CFrame.new(60, 0, -(OUTER + 3.2)) * CFrame.Angles(0, math.pi / 2, 0))
 
-	-- a ring of trees behind the houses: even spacing with a little jitter, kinds in a repeating pattern,
-	-- never inside a building or on the perimeter street (near the diagonals the circle cuts inside its corners),
-	-- and only where the arena can see them (not straight behind a house)
-	local ring = { "Oak", "Evergreen", "Maple", "Roadside", "Evergreen", "Cherry" }
+	-- two rings of trees behind the houses (the town's tree cover and a wall of green at the map edge): even
+	-- spacing with a little jitter, kinds in a repeating pattern, never inside a building or on the perimeter
+	-- street (near the diagonals the circles cut inside its corners). Mesh trees (Oak, Roadside: 4 parts each)
+	-- are planted everywhere; the part-built kinds only where the arena can see them (not straight behind a house)
+	local ring = { "Oak", "Roadside", "Evergreen", "Oak", "Roadside", "Maple", "Oak", "Roadside", "Cherry" }
+	local meshKinds = { Oak = true, Roadside = true }
 	local planted = 0
-	for i = 0, 43 do
-		local angle = i * math.pi * 2 / 44 + rng:NextNumber(-0.03, 0.03)
-		local radius = d + 66 + (i % 3) * 5 + rng:NextNumber(-1.5, 1.5)
+	for i = 0, 107 do
+		local outer = i >= 52
+		local count = if outer then 56 else 52
+		local angle = (if outer then (i - 52) + 0.5 else i) * math.pi * 2 / count + rng:NextNumber(-0.03, 0.03)
+		local radius = (if outer then d + 84 else d + 64) + (i % 3) * 3 + rng:NextNumber(-1.5, 1.5)
 		local position = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local kind = ring[planted % #ring + 1]
 		local free = math.max(math.abs(position.X), math.abs(position.Z)) > OUTER + OUTER_WIDTH / 2 + WALK + 3
 		for _, blocker in blockers do
-			-- straight behind a house its roof hides a tree from the whole arena: don't plant it there
+			-- straight behind a house its roof hides a tree from the whole arena: no part-built tree there
 			local offset = position - blocker[1]
 			local n = blocker[2]
 			if offset:Dot(n) > 0 and math.abs(offset:Dot(Vector3.new(-n.Z, 0, n.X))) < blocker[3] then
-				free = false
+				if not meshKinds[kind] then
+					kind = if i % 2 == 0 then "Oak" else "Roadside"
+				end
+				if offset:Dot(n) < 12 then
+					free = false -- right against the back wall
+				end
 			end
 		end
 		for _, spot in taken do
@@ -534,7 +563,7 @@ local function buildScenery(groups: { [string]: Model }): { { { number } } }
 		end
 		if free then
 			planted += 1
-			tree(ring[planted % #ring + 1], position, rng:NextNumber(0.9, 1.15))
+			Vegetation.Tree(garden, kind, position, rng, rng:NextNumber(0.9, 1.15) * (if outer then 1.15 else 1)) -- outside the arena: no obstacle
 		end
 	end
 	-- tall street lights along the perimeter street's arena side (no driveways there)
