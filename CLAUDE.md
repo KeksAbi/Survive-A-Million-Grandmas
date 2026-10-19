@@ -49,7 +49,9 @@ lighting; square park inside the ring road "Bingo Blvd", four spur streets acros
 perimeter street "Slipper Ave" just outside the arena fence, which the houses and the retirement home face),
 `Streets` (asphalt with ink borders, lane lines, cracks, patches, manholes, storm drains; raised sidewalks with
 curbs, slab joints, ramps, driveway aprons; chamfered corners; crosswalks; stepping stones), `Fences` (Picket,
-Board backyard, Iron, Park, Border, ROAD CLOSED Barricade), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
+Board backyard, Iron, Park, Border, ROAD CLOSED Barricade), `ParkProps` (tiered Fountain with spray particles,
+Slide, CurvySlide, SwingSet, ClimbingFrame, Sandbox, Seesaw, SpringRider, PicnicTable, Pergola, Grill, BirdBath,
+Sundial, SoccerGoal, PicnicBlanket, RoseArch), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
 `Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
 chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
@@ -187,6 +189,11 @@ Report honestly what was tested and what was not.
   (spurs + perimeter street; houses moved to `Config.Map.WallDistance + 42`, retirement home to -(d + 55),
   ground 470), stop signs, street lights, utility boxes, planters, park fences (short, backed by obstacles),
   barricades where the spurs cross the arena fence. Mock run ~21k parts, 117 obstacles; preview renders.
+- [~] Central park redesign (written 2026-10-19, NOT yet seen in Studio): exactly 126 x 126 (measured from the
+  parts: inner sidewalk edges at +-63), round plaza + fountain, four 10-wide paths, sections: playground (+X +Z),
+  picnic (-X +Z), garden + seating (-X -Z), open lawn (+X -Z). Furniture groups (bench + lamp + bin, pergola +
+  tables, garden bed + benches, slides) use overlapping or merged obstacle circles so no pockets trap
+  grandmas; checked for narrow gaps with a script. Mock run ~21k parts, 159 obstacles.
 
 ## Known limitations (now)
 - Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~21k parts (95% deco)

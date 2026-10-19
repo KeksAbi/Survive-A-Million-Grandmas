@@ -288,10 +288,10 @@ function Vegetation.TrimmedHedge(L: Layers, cframe: CFrame, length: number, rng:
 		local x = -length / 2 + (i - 0.5) * length / count
 		for _, side in { -1, 1 } do
 			local bump = cframe * CFrame.new(x + rng:NextNumber(-0.3, 0.3), rng:NextNumber(0.6, h - 0.9), side * (d / 2 + 0.02))
-			K.Block(L.FoliageB, Vector3.new(0.7, 0.55, 0.45) * scale, bump * turn(rng), if i % 2 == 0 then K.Dark(green) else green, true)
+			K.Block(L.FoliageA, Vector3.new(0.7, 0.55, 0.45) * scale, bump * turn(rng), if i % 2 == 0 then K.Dark(green) else K.Light(green), true)
 		end
 		if i % 2 == 1 then
-			K.Block(L.FoliageB, Vector3.new(0.8, 0.45, 0.8) * scale, cframe * CFrame.new(x, h - 0.05, rng:NextNumber(-0.2, 0.2)) * turn(rng), K.Light(green), true)
+			K.Block(L.FoliageA, Vector3.new(0.8, 0.45, 0.8) * scale, cframe * CFrame.new(x, h - 0.05, rng:NextNumber(-0.2, 0.2)) * turn(rng), K.Light(green), true)
 		end
 	end
 end
