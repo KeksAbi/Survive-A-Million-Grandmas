@@ -360,21 +360,23 @@ local function car(L: Layers, kind: string, cf: CFrame, paint: Color3?): (Model,
 		end
 		-- side windows between the pillars (paint shows between them as the B / C pillars)
 		table.sort(pillars)
-		local edges = { z1 + 0.25 }
+		local edges = { z1 + 0.45 }
 		for _, pz in pillars do
 			if pz > z1 + 0.6 and pz < z2 - 0.6 then
 				table.insert(edges, pz - 0.2)
 				table.insert(edges, pz + 0.2)
 			end
 		end
-		table.insert(edges, z2 - 0.25)
+		table.insert(edges, z2 - 0.45)
 		for i = 1, #edges - 1, 2 do
 			local za, zb = edges[i], edges[i + 1]
 			if zb - za > 0.3 then
-				K.Block(D, Vector3.new(0.08, spec.CabinH - 0.45, zb - za), at(s * (cw / 2 + 0.04), cy + 0.05, (za + zb) / 2), C.Glass, true)
+				-- inset window: a painted frame of 0.4 on top (roof slab) and 0.3 below, so the cabin reads as a body, not glass
+				local winH = spec.CabinH - 0.75
+				K.Block(D, Vector3.new(0.06, winH, zb - za), at(s * (cw / 2 + 0.03), top + 0.3 + winH / 2, (za + zb) / 2), C.Glass, true)
 			end
 		end
-		K.Block(D, Vector3.new(0.06, spec.CabinH * 0.45, 0.22), at(s * (cw / 2 + 0.09), cy + 0.15, z1 + 0.9) * CFrame.Angles(math.rad(-30), 0, 0), C.GlassShine, true)
+		K.Block(D, Vector3.new(0.06, spec.CabinH * 0.45, 0.22), at(s * (cw / 2 + 0.07), cy + 0.1, z1 + 1.0) * CFrame.Angles(math.rad(-30), 0, 0), C.GlassShine, true)
 
 		-- door seams and handles
 		for i, sz in seams do
