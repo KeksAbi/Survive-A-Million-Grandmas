@@ -1,13 +1,17 @@
 --!nonstrict
 -- The six comic-style house designs of the neighborhood, assembled from Architecture components, plus each
--- house's front yard (picket fence, path, driveway + car, mailbox, bushes, decorations).
+-- house's front yard (picket fence, path, driveway + car, mailbox, garden, decorations).
 -- Every design is built around the ground center of its main box (`cframe`, front = LookVector, which faces
 -- the arena) and returns a yard description. Numbers below were laid out so that windows, shutters, porches
 -- and roofs do not overlap; keep them consistent when changing a design.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local Architecture = require(script.Parent.Architecture)
 local ComicKit = require(script.Parent.ComicKit)
 local Props = require(script.Parent.Props)
+local Vegetation = require(script.Parent.Vegetation)
 
 local A = Architecture
 local K = ComicKit
@@ -26,7 +30,9 @@ type YardInfo = {
 	LotLeft: number,
 	LotRight: number,
 	Garage: { X: number, Width: number, FrontZ: number }?,
-	Bushes: { { number } }?, -- { x, z, scale? }
+	-- Planting, in local x/z: { "Bush", kind, x, z, scale? } | { "Tree", kind, x, z, scale? } |
+	-- { "Flower", kind, x, z } | { "Bed", x1, x2, z, { flower kinds } } | { "Row", bush kind, x1, x2, z, spacing, scale }
+	Garden: { { any } }?,
 	Decor: ((parent: Instance, at: (x: number, z: number) -> CFrame) -> ())?,
 }
 
@@ -92,7 +98,11 @@ function DESIGNS.Family(L, cframe, rng)
 		LotLeft = -14.5,
 		LotRight = 25,
 		Garage = { X = 18, Width = 10, FrontZ = -6 },
-		Bushes = { { 6.6, -11.8 }, { -13.3, -9.5 } },
+		Garden = {
+			{ "Bed", 5.8, 11.2, -9.9, { "Tulip", "Daisy" } },
+			{ "Bush", "Corner", -13.8, -11.2, 0.7 },
+			{ "Bush", "Pointed", 11.4, -11.8 },
+		},
 	}
 end
 
@@ -127,7 +137,13 @@ function DESIGNS.Cottage(L, cframe, rng)
 		FenceZ = -15.5,
 		LotLeft = -12,
 		LotRight = 13,
-		Bushes = { { -9.8, -9.8 }, { 9.8, -9.8 } },
+		Garden = {
+			{ "Bed", -9.4, -3.6, -9.0, { "Rose", "Daisy" } },
+			{ "Bed", 3.6, 9.4, -9.0, { "Tulip", "Wildflower" } },
+			{ "Bush", "Pointed", -10.8, -10.6 },
+			{ "Bush", "Pointed", 10.8, -10.6 },
+			{ "Tree", "Ornamental", -8.4, -13.2 },
+		},
 		Decor = function(parent, spot)
 			Props.Gnome(parent, spot(3.6, -13))
 			Props.Gnome(parent, spot(-3.4, -13.4) * CFrame.Angles(0, 0.5, 0))
@@ -174,7 +190,14 @@ function DESIGNS.Colonial(L, cframe, rng)
 		FenceZ = -18,
 		LotLeft = -16.5,
 		LotRight = 16.5,
-		Bushes = { { -9.8, -11.8 }, { 9.8, -11.8 } },
+		Garden = {
+			{ "Row", "Round", -13.6, -5.4, -11.6, 2.7, 0.6 },
+			{ "Row", "Round", 5.4, 13.6, -11.6, 2.7, 0.6 },
+			{ "Bed", -13.6, -5.4, -13.4, { "Tulip" } },
+			{ "Bed", 5.4, 13.6, -13.4, { "Tulip" } },
+			{ "Bush", "Pointed", -3.2, -15.6, 0.8 },
+			{ "Bush", "Pointed", 3.2, -15.6, 0.8 },
+		},
 	}
 end
 
@@ -219,6 +242,14 @@ function DESIGNS.GrandmaPink(L, cframe, rng)
 		FenceZ = -18.5,
 		LotLeft = -14.5,
 		LotRight = 14.5,
+		Garden = {
+			{ "Bed", -8, -2.4, -17.3, { "Tulip", "Daisy", "Rose" } },
+			{ "Bed", 2.4, 8, -17.3, { "Daisy", "Tulip", "Rose" } },
+			{ "Flower", "Sunflower", -12.6, -17.4 },
+			{ "Flower", "Sunflower", -11.4, -17.8 },
+			{ "Bush", "Flowering", -13.9, -7.6, 0.6 },
+			{ "Bush", "Flowering", 13.9, -7.6, 0.6 },
+		},
 		Decor = function(parent, spot)
 			Props.Flamingo(parent, spot(9.4, -17.3) * CFrame.Angles(0, 0.6, 0))
 			Props.Flamingo(parent, spot(11.6, -17.1) * CFrame.Angles(0, -0.5, 0))
@@ -274,7 +305,11 @@ function DESIGNS.Victorian(L, cframe, rng)
 		FenceZ = -17.8,
 		LotLeft = -12.5,
 		LotRight = 12.5,
-		Bushes = { { 11.6, -14.8 }, { -12, -6 } },
+		Garden = {
+			{ "Bed", 2.2, 9.4, -15.6, { "Rose" } },
+			{ "Bush", "Corner", 11.8, -15.4, 0.7 },
+			{ "Bush", "Wild", -12.4, -5.6, 0.7 },
+		},
 	}
 end
 
@@ -311,7 +346,15 @@ function DESIGNS.Bungalow(L, cframe, rng)
 		LotLeft = -15.5,
 		LotRight = 25.5,
 		Garage = { X = 19, Width = 10, FrontZ = -5 },
-		Bushes = { { -9, -17.4, 0.6 }, { 8, -17.4, 0.6 } },
+		Garden = {
+			{ "Bed", -12, -6.4, -17.2, { "Daisy", "Wildflower" } },
+			{ "Bed", -1.6, 8, -17.2, { "Tulip", "Daisy" } },
+			{ "Flower", "Sunflower", 13.5, -6.6 },
+			{ "Flower", "Sunflower", 13.5, -7.8 },
+			{ "Flower", "Sunflower", 13.5, -9.0 },
+			{ "Bush", "Leafy", 9.8, -17.4, 0.8 },
+			{ "Bush", "Leafy", -13.6, -17.4, 0.8 },
+		},
 	}
 end
 
@@ -320,8 +363,8 @@ Houses.Designs = { "Family", "Cottage", "Colonial", "GrandmaPink", "Victorian", 
 ------------------------------------------------------------------------------------------------------- yard
 
 -- Front yard: picket fence across the lot (open at the path and the driveway), stepping stones, driveway with
--- joints and a parked car, mailbox at the fence, bushes and the design's decorations.
-local function buildYard(parent: Instance, cars: Instance, cframe: CFrame, info: YardInfo, rng: Random)
+-- joints and a parked car, mailbox at the fence, the design's garden and decorations, grass at the gate.
+local function buildYard(parent: Instance, cars: Instance, garden: Vegetation.Layers, cframe: CFrame, info: YardInfo, rng: Random)
 	local function spot(x: number, z: number): CFrame
 		return cframe * CFrame.new(x, 0, z)
 	end
@@ -370,8 +413,26 @@ local function buildYard(parent: Instance, cars: Instance, cframe: CFrame, info:
 
 	local mailColors = { Color3.fromRGB(220, 50, 45), C.Roofs[1], C.MetalDark }
 	Props.Mailbox(parent, spot(info.DoorX + 2.6, fz - 1), mailColors[rng:NextInteger(1, #mailColors)])
-	for _, bush in (info.Bushes or {}) :: { { number } } do
-		Props.Bush(parent, spot(bush[1], bush[2]).Position, rng, bush[3] or 0.75)
+	for _, plant in (info.Garden or {}) :: { { any } } do
+		local what = plant[1]
+		if what == "Bush" then
+			Vegetation.Bush(garden, plant[2], spot(plant[3], plant[4]).Position, rng, plant[5])
+		elseif what == "Tree" then
+			Vegetation.Tree(garden, plant[2], spot(plant[3], plant[4]).Position, rng, plant[5])
+		elseif what == "Flower" then
+			Vegetation.Flower(garden, plant[2], spot(plant[3], plant[4]).Position, rng, nil, cframe.LookVector)
+		elseif what == "Bed" then
+			Vegetation.Bed(garden, spot(plant[2], plant[4]).Position, spot(plant[3], plant[4]).Position, plant[5], rng)
+		elseif what == "Row" then
+			for rowX = plant[3], plant[4] + 0.01, plant[6] do
+				Vegetation.Bush(garden, plant[2], spot(rowX, plant[5]).Position, rng, plant[7])
+			end
+		end
+	end
+	if Config.Comic.GrassTufts then
+		for _, gateX in { info.DoorX - 2.3, info.DoorX + 2.3 } do
+			Vegetation.Grass(garden, spot(gateX, fz + 0.7).Position, rng, 0.8)
+		end
 	end
 	if info.Decor then
 		info.Decor(parent, spot)
@@ -388,7 +449,7 @@ function Houses.Build(groups: { [string]: Model }, cframe: CFrame, design: strin
 	end
 	local layers = { Walls = sub(groups.HouseWalls), Roofs = sub(groups.HouseRoofs), Details = sub(groups.HouseDetails) }
 	local info = DESIGNS[design](layers, cframe, rng)
-	buildYard(sub(groups.Yards), groups.Cars, cframe, info, rng)
+	buildYard(sub(groups.Yards), groups.Cars, Vegetation.LayersFrom(groups), cframe, info, rng)
 end
 
 return Houses

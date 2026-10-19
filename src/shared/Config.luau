@@ -176,12 +176,13 @@ return {
 		InkColor = Color3.fromRGB(24, 22, 30),
 		InkWidth = 0.3, -- studs: black lines drawn as parts (window frames, corners)
 		-- Silhouette outlines are Highlights (outline only, hidden behind walls). Roblox draws at most 31 at
-		-- once: the map uses ~11 groups, all grandmas share 1, each character gets 1 (8 players max).
+		-- once: the map uses 14 groups, all grandmas share 1, each character gets 1 (8 players max).
 		Outlines = true,
 		OutlineTag = "ComicOutline", -- CollectionService tag of the map's outline-group Models
 		OutlineEnemies = true,
 		OutlineCharacters = true,
 		FirstPersonDistance = 1.5, -- camera this close to the own head = first person: own outline off
+		GrassTufts = true, -- decorative grass tufts in the park, lawns and yards (off = fewer parts on phones)
 		Lighting = {
 			ClockTime = 14,
 			Brightness = 3,

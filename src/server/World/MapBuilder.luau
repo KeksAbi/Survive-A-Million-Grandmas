@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local ComicKit = require(script.Parent.ComicKit)
 local Houses = require(script.Parent.Houses)
 local Props = require(script.Parent.Props)
+local Vegetation = require(script.Parent.Vegetation)
 
 local K = ComicKit
 local C = ComicKit.Colors
@@ -47,19 +48,27 @@ local function folder(parent: Instance, name: string): Folder
 	return f
 end
 
--- One tree, leafy or pine, with its trunk as an enemy obstacle.
-local function tree(group: Instance, position: Vector3, pine: boolean)
-	if pine then
-		Props.Pine(group, position, rng)
-	else
-		Props.Tree(group, position, rng)
-	end
-	addObstacle(position, 1)
+-- Vegetation outline layers (set in Build).
+local garden: Vegetation.Layers
+
+-- Tree / bush whose trunk or footprint is an enemy obstacle (ignored outside the arena).
+local function tree(kind: string, position: Vector3, scale: number?)
+	addObstacle(position, Vegetation.Tree(garden, kind, position, rng, scale))
 end
 
-local function bush(group: Instance, position: Vector3)
-	Props.Bush(group, position, rng)
-	addObstacle(position, 1.7)
+local function bush(kind: string, position: Vector3, scale: number?)
+	addObstacle(position, Vegetation.Bush(garden, kind, position, rng, scale))
+end
+
+-- A ring of grass tufts (decoration only, skipped when Config.Comic.GrassTufts is off).
+local function tufts(center: Vector3, radius: number, count: number)
+	if not Config.Comic.GrassTufts then
+		return
+	end
+	for i = 1, count do
+		local angle = i * math.pi * 2 / count + 0.4
+		Vegetation.Grass(garden, center + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius), rng)
+	end
 end
 
 -- Parked car: two circles along its length keep grandmas off it.
@@ -144,13 +153,29 @@ local function buildPark(groups: { [string]: Model })
 		Props.TrashCan(groups.StreetProps, can)
 		addObstacle(can, 1)
 	end
-	-- trees, bushes and flower beds in the park quarters (low cover, not walls)
+	-- park quarters: an oak or a maple, two bushes, a round flower bed (low cover, not walls)
 	for i, quarter in CORNERS do
-		local trees = if i % 2 == 0 then groups.TreesA else groups.TreesB
-		tree(trees, Vector3.new(quarter[1] * 40, 0, quarter[2] * 40), false)
-		bush(groups.Bushes, Vector3.new(quarter[1] * 28, 0, quarter[2] * 48))
-		bush(groups.Bushes, Vector3.new(quarter[1] * 50, 0, quarter[2] * 26))
-		Props.FlowerBed(groups.Park, Vector3.new(quarter[1] * 22, 0, quarter[2] * 22), rng)
+		local trunk = Vector3.new(quarter[1] * 40, 0, quarter[2] * 40)
+		tree(if i % 2 == 0 then "Oak" else "Maple", trunk)
+		tufts(trunk, 2.6, 3)
+		for k, spot in { Vector3.new(quarter[1] * 28, 0, quarter[2] * 48), Vector3.new(quarter[1] * 50, 0, quarter[2] * 26) } do
+			bush(Vegetation.Bushes[({ 1, 3, 6, 8 })[(i + k) % 4 + 1]], spot)
+			tufts(spot, 2.4, 2)
+		end
+		Vegetation.FlowerBed(garden, Vector3.new(quarter[1] * 22, 0, quarter[2] * 22), rng)
+	end
+	-- blossoming cherry trees in a pinwheel around the paths
+	for _, spot in { Vector3.new(46, 0, 10), Vector3.new(-46, 0, -10), Vector3.new(10, 0, -46), Vector3.new(-10, 0, 46) } do
+		tree("Cherry", spot)
+		tufts(spot, 2.4, 3)
+	end
+	-- flower beds along both sides of every park path
+	local mixes = { { "Tulip" }, { "Daisy", "Tulip" }, { "Rose", "Daisy" }, { "Tulip", "Wildflower" } }
+	for k, dir in { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis } do
+		local across = Vector3.new(dir.Z, 0, -dir.X)
+		for _, side in { -1, 1 } do
+			Vegetation.Bed(garden, dir * 23 + across * side * 4.4, dir * 33 + across * side * 4.4, mixes[k], rng)
+		end
 	end
 	-- lamps at the inner corners of the ring road and along its outer side, hydrants by the outer sidewalk
 	for _, corner in CORNERS do
@@ -236,15 +261,25 @@ local function buildScenery(groups: { [string]: Model })
 			table.insert(taken, { Position = position, Radius = 30 })
 		end
 	end
-	local home = Vector3.new(0, 0, -d - 35)
-	Props.RetirementHome(groups.Landmarks, CFrame.lookAt(home, Vector3.zero), rng)
+	local home = CFrame.lookAt(Vector3.new(0, 0, -d - 35), Vector3.zero)
+	Props.RetirementHome(groups.Landmarks, home)
+	-- retirement home garden: trimmed hedges and rose beds beside the porch, pointed shrubs at the steps
+	for _, x in { -33, -23, 23, 33 } do
+		Vegetation.TrimmedHedge(garden, home * CFrame.new(x, 0, -17.2), 8, rng)
+	end
+	for _, side in { -1, 1 } do
+		Vegetation.Bed(garden, (home * CFrame.new(side * 19, 0, -19.6)).Position, (home * CFrame.new(side * 37, 0, -19.6)).Position, { "Rose" }, rng)
+		Vegetation.Bush(garden, "Pointed", (home * CFrame.new(side * 8.6, 0, -28.4)).Position, rng)
+	end
 	Props.SchoolBus(groups.Landmarks, CFrame.new(70, 0, -d - 18) * CFrame.Angles(0, math.pi / 2, 0))
 
-	-- trees scattered behind the houses (never inside a building), bushes on the arena's outer lawn
+	-- a ring of trees behind the houses: even spacing with a little jitter, kinds in a repeating pattern,
+	-- never inside a building
+	local ring = { "Oak", "Evergreen", "Maple", "Roadside", "Evergreen", "Cherry" }
 	local planted = 0
-	for _ = 1, 200 do
-		local angle = rng:NextNumber(0, math.pi * 2)
-		local radius = rng:NextNumber(d + 50, d + 68)
+	for i = 0, 43 do
+		local angle = i * math.pi * 2 / 44 + rng:NextNumber(-0.03, 0.03)
+		local radius = d + 52 + (i % 3) * 6 + rng:NextNumber(-1.5, 1.5)
 		local position = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 		local free = true
 		for _, spot in taken do
@@ -255,19 +290,35 @@ local function buildScenery(groups: { [string]: Model })
 		end
 		if free then
 			planted += 1
-			tree(if planted % 2 == 0 then groups.TreesA else groups.TreesB, position, rng:NextNumber() < 0.4)
-			if planted == 36 then
-				break
-			end
+			tree(ring[planted % #ring + 1], position, rng:NextNumber(0.9, 1.15))
 		end
 	end
-	for _ = 1, 14 do
-		local x = rng:NextNumber(-d + 10, d - 10)
-		local z = if rng:NextNumber() > 0.5 then rng:NextNumber(95, d - 20) else -rng:NextNumber(95, d - 20)
-		if rng:NextNumber() > 0.5 then
-			x, z = z, x
+end
+
+-- The arena's outer lawn: planting spots along the outer sidewalks, bushes and roadside trees in a regular
+-- pattern between the road and the spawn circles (lanes stay open).
+local function buildLawn()
+	local d = Config.Map.WallDistance
+	local bushKinds = { "Wild", "Round", "Corner", "Flowering" }
+	for s, side in SIDES do
+		local out = Vector3.new(side[1], 0, side[2])
+		local along = if side[1] == 0 then Vector3.xAxis else Vector3.zAxis
+		for _, t in { -66, -20, 20, 66 } do
+			local spot = out * (RING + 15) + along * t
+			Vegetation.Bush(garden, "Leafy", spot, rng, 0.9)
+			Vegetation.Flower(garden, "Wildflower", spot + along * 1.6, rng)
+			tufts(spot - along * 1.6, 0.3, 1)
 		end
-		bush(groups.Bushes, Vector3.new(x, 0, z))
+		for k, t in { -96, -52, 52, 96 } do
+			local spot = out * (d - 32) + along * t
+			bush(bushKinds[(s + k) % #bushKinds + 1], spot)
+			tufts(spot, 2.6, 2)
+		end
+		for _, t in { -74, 74 } do
+			local spot = out * (d - 26) + along * t
+			tree("Roadside", spot)
+			tufts(spot, 1.8, 2)
+		end
 	end
 end
 
@@ -308,15 +359,20 @@ function MapBuilder.Build(): Folder
 
 	-- outline groups: neighbors in different groups get an ink line between them
 	local groups = {}
-	for _, name in { "Roads", "Park", "StreetProps", "Cars", "Bushes", "TreesA", "TreesB", "HouseWalls", "HouseRoofs", "HouseDetails", "Yards", "Landmarks", "Fence" } do
+	for _, name in { "Roads", "Park", "StreetProps", "Cars", "FoliageA", "FoliageB", "Wood", "Flowers", "HouseWalls", "HouseRoofs", "HouseDetails", "Yards", "Landmarks", "Fence" } do
 		groups[name] = K.OutlineGroup(map, name)
 	end
+	-- grass blades, stems and soil stay without outlines: at a distance an outline would be all you see of them
+	groups.Grass = K.Model("Grass")
+	groups.Grass.Parent = map
+	garden = Vegetation.LayersFrom(groups)
 
 	buildGroundAndRoads(map, groups.Roads)
 	buildPark(groups)
 	buildBoundary(map, groups.Fence)
 	buildSpawns(map)
 	buildScenery(groups)
+	buildLawn()
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "PlayerSpawn"

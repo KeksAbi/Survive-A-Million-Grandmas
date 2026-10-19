@@ -48,17 +48,21 @@ World (`src/server/World`): `MapBuilder` (layout of the whole map at server star
 lighting), `Houses` (6 house designs: Family, Cottage, Colonial, GrandmaPink, Victorian, Bungalow + front yards),
 `Architecture` (reusable building parts: walls with siding/shingle/brick, gable roofs with shingles, fascia,
 gutters, downspouts, recessed windows, paneled doors, porches with columns/railings, garages, dormers, bay windows,
-chimneys), `Props` (trees, pines, bushes, flower beds, cars, school bus, retirement home, fountain, lamps, benches,
+chimneys), `Vegetation` (6 trees: Oak, Maple, Ornamental, Evergreen, Cherry, Roadside; 8 bushes: Round, Hedge,
+Flowering, Pointed, Trimmed, Wild, Leafy, Corner; flowers: Daisy, Rose, Tulip, Sunflower, Wildflower; grass tufts,
+garden beds, round flower beds), `Props` (cars, school bus, retirement home, fountain, lamps, benches,
 hydrants, fences, flamingos, gnomes, bunting, weather vane), `ComicKit` (palette, flat parts, wedges/prisms/
 spires/gems, ink panels, outline groups), `EnemyFactory` (enemy models from welded parts).
 
 Comic art style (2026-10-19): hard comic look. Black silhouette outlines = one outline-only Highlight per
-outline group (the map has 13 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
+outline group (the map has 14 groups tagged `Config.Comic.OutlineTag`, all grandmas share one because
 `workspace.Enemies` is a Model, one per character) added by the client's `OutlineController`; Roblox draws at most
 31 Highlights, so never one per prop. Inner ink lines = black plates behind windows/doors/signs and thin black
 bars. Flat SmoothPlastic, palette in `ComicKit.Colors`, hard shadows + color grade from `Config.Comic.Lighting`.
 Small details are deco parts (no collision, no raycast, no shadow). Houses are split into HouseWalls / HouseRoofs /
-HouseDetails groups so roofs, windows, doors and porches get a thick ink line against the walls.
+HouseDetails groups so roofs, windows, doors and porches get a thick ink line against the walls. Vegetation:
+leaf masses alternate FoliageA / FoliageB (ink lines between the masses of one canopy), Wood and Flowers are own
+groups; the Grass model (blades, stems, soil) is NOT outlined on purpose (would turn into black scribbles).
 
 Client (`src/client`): `InputController` (keys -> signals), `CameraController` (normal Roblox camera, starts each
 spawn zoomed out and higher; right-click drag turns, wheel zooms), `GunController` (crosshair = mouse cursor,
@@ -162,10 +166,15 @@ Report honestly what was tested and what was not.
 - [~] Six detailed house designs (written 2026-10-19, NOT yet seen in Studio): Houses + Architecture. Houses now
   stand square to the streets (d + 26 from the center). Checked: rojo build, luau-lsp, mock run (~12.8k parts,
   93% deco) and preview renders of every design from a simple offline renderer (no Roblox lighting).
+- [~] Comic vegetation (written 2026-10-19, NOT yet seen in Studio): Vegetation module; planned planting in the
+  park (oaks/maples, cherries, path beds, round beds), outer lawn (bushes, roadside trees, sidewalk planting
+  spots), house gardens (`Garden` lists in Houses), retirement home hedges, ring of trees behind the houses.
+  Checked like the houses (mock run ~16.7k parts, 73 obstacles; preview renders).
 
 ## Known limitations (now)
-- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~12.8k parts and
-  ~22 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off.
+- Comic map: no custom MeshParts (cannot be uploaded from code); shapes are Parts/Wedges. ~16.7k parts (95% deco)
+  and ~23 Highlights: check FPS on a phone; `Config.Comic.Outlines = false` turns the outlines off,
+  `Config.Comic.GrassTufts = false` drops the grass tufts.
   Grandma and gun models are not restyled yet.
 - Not yet run in Studio; first playtest may show bugs.
 - Enemies avoid obstacles with simple circle push-out + sliding (`MapBuilder.GetObstacles`), not pathfinding:

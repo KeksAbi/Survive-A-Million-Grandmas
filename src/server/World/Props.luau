@@ -1,5 +1,5 @@
 --!nonstrict
--- Comic-style prop models for the map (trees, bushes, houses, cars, street furniture, landmarks), built from
+-- Comic-style prop models for the map (cars, street furniture, yard decorations, landmarks), built from
 -- ComicKit parts. Every builder takes a parent and a CFrame/position on the ground; a CFrame's LookVector is
 -- the prop's front. Builders only make geometry: MapBuilder places them and registers enemy obstacles.
 
@@ -11,103 +11,9 @@ local C = ComicKit.Colors
 
 local Props = {}
 
-local function pick(rng: Random, list: { any }): any
-	return list[rng:NextInteger(1, #list)]
-end
-
 -- Turns a CFrame on a box's +X (side = 1) or -X (side = -1) wall so its LookVector points out of that wall.
 local function sideFacing(side: number): CFrame
 	return if side == 1 then Architecture.Face.Right else Architecture.Face.Left
-end
-
---------------------------------------------------------------------------------------------------- nature
-
--- Leafy tree: twisted tapering trunk, root flares, three branches, faceted leaf clusters in three tones.
-function Props.Tree(parent: Instance, position: Vector3, rng: Random): Model
-	local model = K.Model("Tree")
-	local height = rng:NextNumber(6, 8.5)
-	local spin = rng:NextNumber(0, math.pi * 2)
-	local base = CFrame.new(position) * CFrame.Angles(0, spin, 0)
-
-	for i = 0, 2 do
-		K.Wedge(model, Vector3.new(0.8, 1.1, 1.3), base * CFrame.Angles(0, i * math.pi * 2 / 3, 0) * CFrame.new(0, 0.55, -1.05), C.Trunk, true)
-	end
-	local segment = height / 3
-	for i, width in { 1.7, 1.35, 1.0 } do
-		K.Block(model, Vector3.new(width, segment + 0.3, width), base * CFrame.new(0, (i - 0.5) * segment, 0) * CFrame.Angles(0, i * 0.5, 0), C.Trunk)
-	end
-
-	local leaves = pick(rng, C.Leaves)
-	local fork = position + Vector3.new(0, height - 1.2, 0)
-	for i = 0, 2 do
-		local angle = spin + i * math.pi * 2 / 3 + rng:NextNumber(-0.3, 0.3)
-		local tip = fork + Vector3.new(math.cos(angle), 0.9, math.sin(angle)).Unit * rng:NextNumber(2.6, 3.4)
-		K.Block(model, Vector3.new(0.55, 0.55, (tip - fork).Magnitude), CFrame.lookAt((fork + tip) / 2, tip), C.Trunk, true)
-		K.Gem(model, rng:NextNumber(4, 4.8), tip + Vector3.new(0, 0.8, 0), if i == 0 then K.Dark(leaves) else leaves, rng, true)
-	end
-	K.Gem(model, rng:NextNumber(5.5, 6.5), position + Vector3.new(0, height + 2.6, 0), K.Light(leaves), rng, true)
-	model.Parent = parent
-	return model
-end
-
--- Pine: short trunk and three twisted, shrinking spire tiers.
-function Props.Pine(parent: Instance, position: Vector3, rng: Random): Model
-	local model = K.Model("Pine")
-	local base = CFrame.new(position) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
-	local scale = rng:NextNumber(0.9, 1.25)
-	K.Block(model, Vector3.new(1.1, 3, 1.1) * scale, base * CFrame.new(0, 1.5 * scale, 0), C.Trunk)
-	for i = 0, 2 do
-		local color = C.Pine[i % 2 + 1]
-		K.Spire(model, (7 - i * 1.9) * scale, (4.2 - i * 0.5) * scale, base * CFrame.new(0, (2.2 + i * 2.5) * scale, 0) * CFrame.Angles(0, i * 0.4, 0), color, true)
-	end
-	model.Parent = parent
-	return model
-end
-
--- Bush: irregular faceted leaf clusters (dark below, light on top), sometimes with blossoms.
-function Props.Bush(parent: Instance, position: Vector3, rng: Random, scale: number?): Model
-	local s = scale or 1
-	local model = K.Model("Bush")
-	local leaves = pick(rng, C.Leaves)
-	local spin = rng:NextNumber(0, math.pi * 2)
-	for i = 0, 2 do
-		local angle = spin + i * math.pi * 2 / 3
-		local offset = Vector3.new(math.cos(angle) * 0.9, 1, math.sin(angle) * 0.9) * s
-		K.Gem(model, rng:NextNumber(2.2, 2.8) * s, position + offset, if i == 0 then K.Dark(leaves) else leaves, rng, true)
-	end
-	K.Gem(model, 2.4 * s, position + Vector3.new(0, 1.9 * s, 0), K.Light(leaves), rng, true)
-	if rng:NextNumber() < 0.5 then
-		local flower = pick(rng, C.Flowers)
-		for i = 1, 4 do
-			local angle = spin + i * 1.6
-			local at = position + Vector3.new(math.cos(angle) * 1.4, rng:NextNumber(1.4, 2.4), math.sin(angle) * 1.4) * s
-			K.Block(model, Vector3.one * 0.55 * s, CFrame.new(at) * CFrame.Angles(math.pi / 4, math.pi / 4, 0), flower, true)
-		end
-	end
-	model.Parent = parent
-	return model
-end
-
--- Octagonal stone flower bed with stems, blossoms and leaf tufts (flat: nothing to walk around).
-function Props.FlowerBed(parent: Instance, position: Vector3, rng: Random): Model
-	local model = K.Model("FlowerBed")
-	for i = 0, 7 do
-		local cf = CFrame.new(position) * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, 0.3, -3.2)
-		K.Block(model, Vector3.new(2.8, 0.6, 0.7), cf, C.Stone, true)
-	end
-	K.Disc(model, 6.2, 0.4, position, Color3.fromRGB(116, 76, 46), true)
-	for i = 1, 9 do
-		local angle = i * 2.4
-		local radius = rng:NextNumber(0.5, 2.4)
-		local height = rng:NextNumber(0.9, 1.6)
-		local ground = position + Vector3.new(math.cos(angle) * radius, 0.4, math.sin(angle) * radius)
-		K.Block(model, Vector3.new(0.18, height, 0.18), CFrame.new(ground + Vector3.new(0, height / 2, 0)), C.Pine[2], true)
-		K.Block(model, Vector3.one * 0.8, CFrame.new(ground + Vector3.new(0, height, 0)) * CFrame.Angles(math.pi / 4, angle, math.pi / 4), C.Flowers[i % #C.Flowers + 1], true)
-	end
-	K.Gem(model, 1.4, position + Vector3.new(0.6, 0.8, -0.4), C.Leaves[3], rng, true)
-	K.Gem(model, 1.2, position + Vector3.new(-0.8, 0.7, 0.7), C.Leaves[1], rng, true)
-	model.Parent = parent
-	return model
 end
 
 ------------------------------------------------------------------------------------------- street props
@@ -438,7 +344,7 @@ end
 
 -- The retirement home: two floors of shuttered windows, pilasters, cornice, gable roof with a clock tower,
 -- columned porch with rocking chairs, double doors and the big inked sign. Faces LookVector.
-function Props.RetirementHome(parent: Instance, cframe: CFrame, rng: Random): Model
+function Props.RetirementHome(parent: Instance, cframe: CFrame): Model
 	local model = K.Model("RetirementHome")
 	local W, D, H = 80, 30, 22
 	local cream = Color3.fromRGB(244, 226, 190)
@@ -506,9 +412,6 @@ function Props.RetirementHome(parent: Instance, cframe: CFrame, rng: Random): Mo
 	end
 	for _, x in { -1.8, 1.8 } do
 		Architecture.Door(L, at(x, 1.4, front), 3.4, 8, C.Doors[4], { Glass = true })
-	end
-	for _, x in { -36, -24, 24, 36 } do
-		Props.Bush(model, at(x, 0, front - 2.2).Position, rng)
 	end
 
 	-- the sign stands on the porch roof
