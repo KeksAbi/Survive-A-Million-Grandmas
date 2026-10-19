@@ -79,7 +79,8 @@ flat parts, wedges/prisms/spires/cones/gems, balls, rods/tubes, octagons, text, 
 `Meshes` (real mesh geometry from in-game CSG at server start: `Solid` = box cut by planes, `Frustum`, `Lump` =
 faceted blob, `Union`/`Subtract`; `Ensure(name, build)` builds a template once, `Place(name, layers, cframe, scale,
 paint)` clones it; CSG failure or `Config.Comic.Meshes = false` -> callers build their part version),
-`EnemyFactory` (enemy models from welded parts).
+`EnemyFactory` (comic grandmas from welded parts: big head, round glasses, ink brows, perm curls + bun,
+polka-dot dress, open cardigan, pearls, fists, chunky shoes; handbag / slipper / rolling pin; ~55 parts each).
 Props: ground CFrame in (LookVector = front), Model out; small pieces deco, only big bodies solid; anything solid
 inside the arena gets an obstacle circle in MapBuilder.
 

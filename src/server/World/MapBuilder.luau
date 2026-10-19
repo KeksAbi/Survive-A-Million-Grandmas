@@ -797,10 +797,21 @@ function MapBuilder.Build(): Folder
 	spawn.Parent = map
 
 	setupLighting()
-	-- performance pass: nothing on the map uses Touched, and small pieces do not need to cast shadows
+	-- performance pass: nothing on the map uses Touched, and small pieces do not need to cast shadows.
+	-- Inside the arena every bigger visible piece is solid, so players stand on stalls, tables, roofs and
+	-- canopies instead of sinking into them (enemies use obstacle circles, not physics).
+	local arena = Config.Map.WallDistance
 	for _, part in map:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.CanTouch = false
+			local p = part.Position
+			if not part.CanCollide and part.Transparency < 0.9 and math.max(math.abs(p.X), math.abs(p.Z)) < arena then
+				local dims = { part.Size.X, part.Size.Y, part.Size.Z }
+				table.sort(dims)
+				if dims[3] >= 2.5 and dims[2] >= 1 then
+					part.CanCollide = true
+				end
+			end
 			local size = part.Size
 			if math.max(size.X, size.Y, size.Z) < 3 then
 				part.CastShadow = false
